@@ -58,46 +58,33 @@
   }
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar styles */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: hsl(var(--muted));
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 3px;
+  background: hsl(var(--border));
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: hsl(var(--muted-foreground));
 }
 
-/* Animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
+/* Loading animation */
+@keyframes spin {
   to {
-    opacity: 1;
-    transform: translateY(0);
+    transform: rotate(360deg);
   }
 }
 
-.animate-fade-in {
-  animation: fadeIn 0.3s ease-out;
-}
-
-/* Responsive utilities */
-@media (max-width: 768px) {
-  .container {
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
+.animate-spin {
+  animation: spin 1s linear infinite;
 }
 
 /* Print styles */

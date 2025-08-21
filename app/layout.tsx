@@ -2,21 +2,18 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
+import { AuthProvider } from "@/contexts/auth-context"
+import { HotelProvider } from "@/contexts/hotel-context"
+import { ThemeProvider } from "@/components/theme-provider"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Hotel Management System",
-  description: "Sistema completo de gerenciamento hoteleiro com controle de quartos, reservas e hóspedes",
-  keywords: "hotel, gerenciamento, reservas, quartos, hospedagem",
+  description: "Sistema completo de gerenciamento hoteleiro",
+  keywords: ["hotel", "management", "reservas", "quartos", "hospedagem"],
   authors: [{ name: "Hotel Management Team" }],
-  robots: "index, follow",
-  openGraph: {
-    title: "Hotel Management System",
-    description: "Sistema completo de gerenciamento hoteleiro",
-    type: "website",
-    locale: "pt_BR",
-  },
+  viewport: "width=device-width, initial-scale=1",
     generator: 'v0.app'
 }
 
@@ -26,12 +23,13 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="pt-BR">
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-      </head>
-      <body className={inter.className} suppressHydrationWarning={true}>
-        {children}
+    <html lang="pt-BR" suppressHydrationWarning>
+      <body className={inter.className}>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+          <AuthProvider>
+            <HotelProvider>{children}</HotelProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   )
