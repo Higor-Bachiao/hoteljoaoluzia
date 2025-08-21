@@ -3,16 +3,19 @@ const nextConfig = {
   output: 'export',
   distDir: 'out',
   trailingSlash: true,
-  skipTrailingSlashRedirect: true,
   images: {
-    unoptimized: true
+    unoptimized: true,
   },
   eslint: {
     ignoreDuringBuilds: true,
   },
   typescript: {
     ignoreBuildErrors: true,
-  }
+  },
+  // Para export estático, precisamos desabilitar algumas funcionalidades
+  experimental: {
+    // Removemos as opções que causavam erro
+  },
 }
 
 export default nextConfig

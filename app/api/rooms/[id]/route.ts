@@ -1,32 +1,48 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { executeQuery } from "@/lib/database"
+import { HotelDatabase } from "@/lib/hotel-database"
+
+// Esta função é necessária para export estático com rotas dinâmicas
+export async function generateStaticParams() {
+  // Para export estático, precisamos definir todos os IDs possíveis
+  // Como temos quartos de 101 a 120, vamos gerar esses parâmetros
+  const roomIds = []
+  for (let i = 101; i <= 120; i++) {
+    roomIds.push({ id: i.toString() })
+  }
+  return roomIds
+}
+
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    console.log(`🔍 Buscando quarto ${params.id}`)
+
+    const room = await HotelDatabase.getRoomById(params.id)
+
+    if (!room) {
+      return NextResponse.json({ error: "Quarto não encontrado" }, { status: 404 })
+    }
+
+    console.log("✅ Quarto encontrado:", room)
+
+    return NextResponse.json(room)
+  } catch (error: any) {
+    console.error("❌ Erro ao buscar quarto:", error)
+    return NextResponse.json(
+      {
+        error: "Erro ao buscar quarto",
+        details: error.message,
+      },
+      { status: 500 },
+    )
+  }
+}
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const updates = await request.json()
-    console.log(`🔄 Atualizando quarto ${params.id}:`, updates)
+    const data = await request.json()
+    console.log(`🔄 Atualizando quarto ${params.id}:`, data)
 
-    // Construir query de update dinamicamente
-    const fields = Object.keys(updates)
-      .filter((key) => key !== "id")
-      .map((key) => `${key} = ?`)
-      .join(", ")
-
-    const values = Object.keys(updates)
-      .filter((key) => key !== "id")
-      .map((key) => {
-        if (key === "amenities") {
-          return JSON.stringify(updates[key])
-        }
-        return updates[key]
-      })
-
-    if (fields.length === 0) {
-      return NextResponse.json({ error: "Nenhum campo para atualizar" }, { status: 400 })
-    }
-
-    const query = `UPDATE rooms SET ${fields} WHERE id = ?`
-    await executeQuery(query, [...values, params.id])
+    await HotelDatabase.updateRoom(params.id, data)
 
     console.log("✅ Quarto atualizado com sucesso")
 
@@ -38,33 +54,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     return NextResponse.json(
       {
         error: "Erro ao atualizar quarto",
-        details: error.message,
-      },
-      { status: 500 },
-    )
-  }
-}
-
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
-  try {
-    console.log(`🗑️ Deletando quarto ${params.id}`)
-
-    // Primeiro, deletar reservas relacionadas
-    await executeQuery("DELETE FROM reservations WHERE room_id = ?", [params.id])
-
-    // Depois, deletar o quarto
-    await executeQuery("DELETE FROM rooms WHERE id = ?", [params.id])
-
-    console.log("✅ Quarto deletado com sucesso")
-
-    return NextResponse.json({
-      message: "Quarto deletado com sucesso",
-    })
-  } catch (error: any) {
-    console.error("❌ Erro ao deletar quarto:", error)
-    return NextResponse.json(
-      {
-        error: "Erro ao deletar quarto",
         details: error.message,
       },
       { status: 500 },
