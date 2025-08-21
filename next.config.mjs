@@ -12,10 +12,6 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Para export estático, precisamos desabilitar algumas funcionalidades
-  experimental: {
-    // Removemos as opções que causavam erro
-  },
 }
 
 export default nextConfig

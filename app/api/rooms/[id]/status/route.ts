@@ -1,37 +1,54 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { HotelDatabase } from "@/lib/hotel-database"
+import { hotelDatabase } from "@/lib/hotel-database"
 
-// Esta função é necessária para export estático com rotas dinâmicas
 export async function generateStaticParams() {
-  // Para export estático, precisamos definir todos os IDs possíveis
-  // Como temos quartos de 101 a 120, vamos gerar esses parâmetros
-  const roomIds = []
-  for (let i = 101; i <= 120; i++) {
-    roomIds.push({ id: i.toString() })
-  }
+  // Gerar parâmetros estáticos para os quartos (101-120)
+  const roomIds = Array.from({ length: 20 }, (_, i) => ({
+    id: (101 + i).toString(),
+  }))
+
   return roomIds
 }
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { status, guest } = await request.json()
-    console.log(`🔄 Atualizando status do quarto ${params.id} para: ${status}`)
+    const { status } = await request.json()
+    const roomId = Number.parseInt(params.id)
 
-    await HotelDatabase.updateRoomStatus(params.id, status, guest)
+    if (!roomId || !status) {
+      return NextResponse.json({ error: "Room ID and status are required" }, { status: 400 })
+    }
 
-    console.log("✅ Status do quarto atualizado com sucesso")
+    const updatedRoom = await hotelDatabase.updateRoomStatus(roomId, status)
 
-    return NextResponse.json({
-      message: "Status do quarto atualizado com sucesso",
-    })
-  } catch (error: any) {
-    console.error("❌ Erro ao atualizar status:", error)
-    return NextResponse.json(
-      {
-        error: "Erro ao atualizar status do quarto",
-        details: error.message,
-      },
-      { status: 500 },
-    )
+    if (!updatedRoom) {
+      return NextResponse.json({ error: "Room not found" }, { status: 404 })
+    }
+
+    return NextResponse.json(updatedRoom)
+  } catch (error) {
+    console.error("Error updating room status:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const roomId = Number.parseInt(params.id)
+
+    if (!roomId) {
+      return NextResponse.json({ error: "Room ID is required" }, { status: 400 })
+    }
+
+    const room = await hotelDatabase.getRoomById(roomId)
+
+    if (!room) {
+      return NextResponse.json({ error: "Room not found" }, { status: 404 })
+    }
+
+    return NextResponse.json({ status: room.status })
+  } catch (error) {
+    console.error("Error getting room status:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

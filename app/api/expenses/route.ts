@@ -1,26 +1,28 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { HotelDatabase } from "@/lib/hotel-database"
+import { hotelDatabase } from "@/lib/hotel-database"
+
+export async function GET() {
+  try {
+    const expenses = await hotelDatabase.getAllExpenses()
+    return NextResponse.json(expenses)
+  } catch (error) {
+    console.error("Error getting expenses:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const { guestId, description, value } = await request.json()
-    console.log("💰 Adicionando despesa:", { guestId, description, value })
+    const expenseData = await request.json()
 
-    await HotelDatabase.addExpense(guestId, { description, value })
+    if (!expenseData.description || !expenseData.amount || !expenseData.category) {
+      return NextResponse.json({ error: "Description, amount, and category are required" }, { status: 400 })
+    }
 
-    console.log("✅ Despesa adicionada com sucesso")
-
-    return NextResponse.json({
-      message: "Despesa adicionada com sucesso",
-    })
-  } catch (error: any) {
-    console.error("❌ Erro ao adicionar despesa:", error)
-    return NextResponse.json(
-      {
-        error: "Erro ao adicionar despesa",
-        details: error.message,
-      },
-      { status: 500 },
-    )
+    const newExpense = await hotelDatabase.addExpense(expenseData)
+    return NextResponse.json(newExpense, { status: 201 })
+  } catch (error) {
+    console.error("Error creating expense:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
