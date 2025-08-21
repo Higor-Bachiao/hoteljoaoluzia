@@ -3,7 +3,7 @@
   command = "npm run build"
 
 [build.environment]
-  NODE_VERSION = "18.19.0"
+  NODE_VERSION = "18"
   NEXT_TELEMETRY_DISABLED = "1"
 
 # Configuração para SPA (Single Page Application)
@@ -24,10 +24,5 @@
 # Cache para assets estáticos
 [[headers]]
   for = "/static/*"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
-
-[[headers]]
-  for = "/_next/static/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
