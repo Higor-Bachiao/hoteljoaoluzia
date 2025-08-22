@@ -1,54 +1,73 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { hotelDatabase } from "@/lib/hotel-database"
-
-export async function generateStaticParams() {
-  // Gerar parâmetros estáticos para os quartos (101-120)
-  const roomIds = Array.from({ length: 20 }, (_, i) => ({
-    id: (101 + i).toString(),
-  }))
-
-  return roomIds
-}
-
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
-  try {
-    const roomId = Number.parseInt(params.id)
-
-    if (!roomId) {
-      return NextResponse.json({ error: "Room ID is required" }, { status: 400 })
-    }
-
-    const room = await hotelDatabase.getRoomById(roomId)
-
-    if (!room) {
-      return NextResponse.json({ error: "Room not found" }, { status: 404 })
-    }
-
-    return NextResponse.json(room)
-  } catch (error) {
-    console.error("Error getting room:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
-  }
-}
+import { executeQuery } from "@/lib/database"
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const roomId = Number.parseInt(params.id)
-    const updateData = await request.json()
+    const updates = await request.json()
+    console.log(`🔄 Atualizando quarto ${params.id}:`, updates)
 
-    if (!roomId) {
-      return NextResponse.json({ error: "Room ID is required" }, { status: 400 })
+    // Construir query de update dinamicamente
+    const fields = Object.keys(updates)
+      .filter((key) => key !== "id")
+      .map((key) => `${key} = ?`)
+      .join(", ")
+
+    const values = Object.keys(updates)
+      .filter((key) => key !== "id")
+      .map((key) => {
+        if (key === "amenities") {
+          return JSON.stringify(updates[key])
+        }
+        return updates[key]
+      })
+
+    if (fields.length === 0) {
+      return NextResponse.json({ error: "Nenhum campo para atualizar" }, { status: 400 })
     }
 
-    const updatedRoom = await hotelDatabase.updateRoom(roomId, updateData)
+    const query = `UPDATE rooms SET ${fields} WHERE id = ?`
+    await executeQuery(query, [...values, params.id])
 
-    if (!updatedRoom) {
-      return NextResponse.json({ error: "Room not found" }, { status: 404 })
-    }
+    console.log("✅ Quarto atualizado com sucesso")
 
-    return NextResponse.json(updatedRoom)
-  } catch (error) {
-    console.error("Error updating room:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json({
+      message: "Quarto atualizado com sucesso",
+    })
+  } catch (error: any) {
+    console.error("❌ Erro ao atualizar quarto:", error)
+    return NextResponse.json(
+      {
+        error: "Erro ao atualizar quarto",
+        details: error.message,
+      },
+      { status: 500 },
+    )
+  }
+}
+
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    console.log(`🗑️ Deletando quarto ${params.id}`)
+
+    // Primeiro, deletar reservas relacionadas
+    await executeQuery("DELETE FROM reservations WHERE room_id = ?", [params.id])
+
+    // Depois, deletar o quarto
+    await executeQuery("DELETE FROM rooms WHERE id = ?", [params.id])
+
+    console.log("✅ Quarto deletado com sucesso")
+
+    return NextResponse.json({
+      message: "Quarto deletado com sucesso",
+    })
+  } catch (error: any) {
+    console.error("❌ Erro ao deletar quarto:", error)
+    return NextResponse.json(
+      {
+        error: "Erro ao deletar quarto",
+        details: error.message,
+      },
+      { status: 500 },
+    )
   }
 }

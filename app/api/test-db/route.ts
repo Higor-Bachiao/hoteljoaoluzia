@@ -1,24 +1,29 @@
 import { NextResponse } from "next/server"
-import { hotelDatabase } from "@/lib/hotel-database"
+import { executeQuery } from "@/lib/database"
 
 export async function GET() {
   try {
-    // Teste simples de conexão
-    const rooms = await hotelDatabase.getAllRooms()
+    console.log("🔍 Testando conexão com MySQL...")
+
+    // Testar conexão básica
+    const result = (await executeQuery("SELECT COUNT(*) as total FROM rooms")) as any[]
+
+    console.log("✅ Conexão estabelecida com sucesso!")
+    console.log("📊 Total de quartos no banco:", result[0]?.total || 0)
 
     return NextResponse.json({
       success: true,
-      message: "Database connection successful",
-      roomCount: rooms.length,
+      message: "Conexão com MySQL estabelecida com sucesso!",
+      totalRooms: result[0]?.total || 0,
       timestamp: new Date().toISOString(),
     })
-  } catch (error) {
-    console.error("Database test error:", error)
+  } catch (error: any) {
+    console.error("❌ Erro de conexão com MySQL:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Database connection failed",
-        message: error instanceof Error ? error.message : "Unknown error",
+        error: error.message,
+        details: "Verifique se o MySQL está rodando e as credenciais estão corretas",
       },
       { status: 500 },
     )
