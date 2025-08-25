@@ -49,7 +49,7 @@ interface HotelContextType {
 
 const HotelContext = createContext<HotelContextType | undefined>(undefined)
 
-// 🔧 DADOS PADRÃO SEGUROS
+// Dados padrão do sistema
 const getDefaultRooms = (): Room[] => [
   {
     id: "room_101",
@@ -101,54 +101,57 @@ const getDefaultRooms = (): Room[] => [
     amenities: ["wifi", "tv"],
     status: "available",
   },
+  {
+    id: "room_201",
+    number: "201",
+    type: "Solteiro",
+    capacity: 1,
+    beds: 1,
+    price: 85,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "room_202",
+    number: "202",
+    type: "Casal",
+    capacity: 2,
+    beds: 1,
+    price: 125,
+    amenities: ["wifi", "tv", "ar-condicionado"],
+    status: "available",
+  },
+  {
+    id: "room_203",
+    number: "203",
+    type: "Triplo",
+    capacity: 3,
+    beds: 2,
+    price: 155,
+    amenities: ["wifi", "tv", "minibar"],
+    status: "available",
+  },
 ]
 
-// 🔧 VALIDAÇÃO DE DADOS ROBUSTA
 const validateRoom = (room: any): room is Room => {
-  try {
-    return (
-      room &&
-      typeof room.id === "string" &&
-      room.id.length > 0 &&
-      typeof room.number === "string" &&
-      room.number.length > 0 &&
-      typeof room.type === "string" &&
-      room.type.length > 0 &&
-      typeof room.capacity === "number" &&
-      room.capacity > 0 &&
-      typeof room.beds === "number" &&
-      room.beds > 0 &&
-      typeof room.price === "number" &&
-      room.price >= 0 &&
-      Array.isArray(room.amenities) &&
-      ["available", "occupied", "maintenance", "reserved"].includes(room.status)
-    )
-  } catch (error) {
-    console.error("❌ Erro na validação do quarto:", error)
-    return false
-  }
+  return (
+    room &&
+    typeof room.id === "string" &&
+    typeof room.number === "string" &&
+    typeof room.type === "string" &&
+    typeof room.capacity === "number" &&
+    typeof room.beds === "number" &&
+    typeof room.price === "number" &&
+    Array.isArray(room.amenities) &&
+    ["available", "occupied", "maintenance", "reserved"].includes(room.status)
+  )
 }
 
 const validateRooms = (rooms: any[]): Room[] => {
-  try {
-    if (!Array.isArray(rooms)) {
-      console.warn("⚠️ Dados de quartos não são um array, usando padrão")
-      return getDefaultRooms()
-    }
-
-    const validRooms = rooms.filter(validateRoom)
-
-    if (validRooms.length === 0) {
-      console.warn("⚠️ Nenhum quarto válido encontrado, usando dados padrão")
-      return getDefaultRooms()
-    }
-
-    console.log(`✅ ${validRooms.length} quartos válidos de ${rooms.length} total`)
-    return validRooms
-  } catch (error) {
-    console.error("❌ Erro na validação de quartos:", error)
-    return getDefaultRooms()
-  }
+  if (!Array.isArray(rooms)) return getDefaultRooms()
+  const validRooms = rooms.filter(validateRoom)
+  if (validRooms.length === 0) return getDefaultRooms()
+  return validRooms
 }
 
 export function HotelProvider({ children }: { children: ReactNode }) {
@@ -162,7 +165,6 @@ export function HotelProvider({ children }: { children: ReactNode }) {
   const [isOnline, setIsOnline] = useState(true)
   const syncIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const isInitialized = useRef(false)
-  const isSyncing = useRef(false)
 
   const [filters, setFilters] = useState<HotelFilters>({
     type: "",
@@ -171,22 +173,15 @@ export function HotelProvider({ children }: { children: ReactNode }) {
     maxPrice: 1000,
   })
 
-  // 🌐 Monitorar status de conexão
+  // Monitorar status de conexão
   useEffect(() => {
     const handleOnline = () => {
-      console.log("🌐 Conexão restaurada")
       setIsOnline(true)
-      setError(null)
-      // Sincronizar imediatamente quando voltar online
-      if (isInitialized.current) {
-        syncData()
-      }
+      console.log("🌐 Conexão restaurada")
     }
-
     const handleOffline = () => {
-      console.log("🌐 Conexão perdida")
       setIsOnline(false)
-      setError("Sem conexão com a internet")
+      console.log("🌐 Conexão perdida")
     }
 
     setIsOnline(navigator.onLine)
@@ -199,49 +194,25 @@ export function HotelProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // 🔄 Função para sincronizar dados com Supabase
+  // Função para sincronizar dados com Supabase
   const syncData = async (silent = true) => {
-    // Evitar múltiplas sincronizações simultâneas
-    if (isSyncing.current) {
-      if (!silent) console.log("🔄 Sincronização já em andamento...")
-      return
-    }
-
     if (!isOnline) {
       if (!silent) console.log("📴 Offline - pulando sincronização")
       return
     }
 
-    isSyncing.current = true
-
     try {
       if (!silent) {
-        console.log("🔄 Iniciando sincronização com Supabase...")
+        console.log("🔄 Sincronizando dados com Supabase...")
         setError(null)
       }
 
-      // Verificar saúde da conexão primeiro
-      const isHealthy = await HotelServiceCloud.healthCheck()
-      if (!isHealthy) {
-        throw new Error("Conexão com o banco de dados não está saudável")
-      }
-
-      // Buscar dados com timeout
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Timeout na sincronização")), 10000) // 10 segundos
-      })
-
-      const dataPromise = Promise.all([
-        HotelServiceCloud.getAllRooms(),
-        HotelServiceCloud.getFutureReservations(),
-        HotelServiceCloud.getGuestHistory(),
+      // Tentar buscar dados do Supabase
+      const [roomsData, reservationsData, historyData] = await Promise.all([
+        HotelServiceCloud.getAllRooms().catch(() => []),
+        HotelServiceCloud.getFutureReservations().catch(() => []),
+        HotelServiceCloud.getGuestHistory().catch(() => []),
       ])
-
-      const [roomsData, reservationsData, historyData] = (await Promise.race([dataPromise, timeoutPromise])) as [
-        Room[],
-        Reservation[],
-        GuestHistory[],
-      ]
 
       // Validar e definir dados
       const validatedRooms = validateRooms(roomsData)
@@ -253,10 +224,8 @@ export function HotelProvider({ children }: { children: ReactNode }) {
       setError(null)
 
       if (!silent) {
-        console.log("✅ Sincronização concluída com sucesso")
-        console.log(
-          `📊 ${validatedRooms.length} quartos, ${reservationsData?.length || 0} reservas, ${historyData?.length || 0} históricos`,
-        )
+        console.log("✅ Dados sincronizados com sucesso")
+        console.log(`📊 ${validatedRooms.length} quartos carregados`)
       }
     } catch (error: any) {
       console.error("❌ Erro na sincronização:", error)
@@ -270,39 +239,25 @@ export function HotelProvider({ children }: { children: ReactNode }) {
         setGuestHistory([])
       }
 
-      const errorMessage = error.message || "Erro desconhecido na sincronização"
-      setError(errorMessage)
-
-      // Se for erro de rede, marcar como offline
-      if (errorMessage.includes("fetch") || errorMessage.includes("network") || errorMessage.includes("Timeout")) {
-        setIsOnline(false)
-      }
-    } finally {
-      isSyncing.current = false
+      setError(`Erro de sincronização: ${error.message}`)
     }
   }
 
-  // 🔄 Função para reset completo dos dados
+  // Função para reset completo dos dados
   const resetData = async () => {
     try {
       console.log("🔄 Resetando dados...")
       setIsLoading(true)
-      setError(null)
 
       // Limpar localStorage
-      try {
-        localStorage.removeItem("hotel_current_user")
-        localStorage.removeItem("hotel_rooms_cache")
-        localStorage.removeItem("hotel_reservations_cache")
-      } catch (e) {
-        console.warn("⚠️ Erro ao limpar localStorage:", e)
-      }
+      localStorage.removeItem("hotel_current_user")
 
       // Resetar para dados padrão
       const defaultRooms = getDefaultRooms()
       setRooms(defaultRooms)
       setFutureReservations([])
       setGuestHistory([])
+      setError(null)
       setLastSync(new Date())
 
       console.log("✅ Dados resetados com sucesso")
@@ -314,45 +269,25 @@ export function HotelProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // 🔄 Função para forçar refresh
+  // Função para forçar refresh
   const forceRefresh = async () => {
     console.log("🔄 Forçando refresh completo...")
     setIsLoading(true)
-    setError(null)
-
-    try {
-      await syncData(false)
-    } finally {
-      setIsLoading(false)
-    }
+    await syncData(false)
+    setIsLoading(false)
   }
 
-  // 🔄 Carregar dados iniciais
+  // Carregar dados iniciais
   useEffect(() => {
     const loadInitialData = async () => {
       try {
         setIsLoading(true)
         console.log("🚀 Carregando dados iniciais...")
 
-        // Tentar carregar do cache primeiro
-        try {
-          const cachedRooms = localStorage.getItem("hotel_rooms_cache")
-          if (cachedRooms) {
-            const parsedRooms = JSON.parse(cachedRooms)
-            const validatedRooms = validateRooms(parsedRooms)
-            if (validatedRooms.length > 0) {
-              setRooms(validatedRooms)
-              console.log("📦 Dados carregados do cache")
-            }
-          }
-        } catch (e) {
-          console.warn("⚠️ Erro ao carregar cache:", e)
-        }
-
         // Tentar sincronizar com Supabase
         await syncData(false)
-        isInitialized.current = true
 
+        isInitialized.current = true
         console.log("✅ Dados iniciais carregados")
       } catch (error: any) {
         console.error("❌ Erro ao carregar dados:", error)
@@ -371,14 +306,14 @@ export function HotelProvider({ children }: { children: ReactNode }) {
     loadInitialData()
   }, [])
 
-  // 🔄 Configurar sincronização automática
+  // Configurar sincronização automática
   useEffect(() => {
     if (!isLoading && isOnline && isInitialized.current) {
-      console.log("⏰ Iniciando sincronização automática (60s)")
+      console.log("⏰ Iniciando sincronização automática (30s)")
 
       syncIntervalRef.current = setInterval(() => {
         syncData(true) // silent = true
-      }, 60000) // 60 segundos
+      }, 30000) // 30 segundos
 
       return () => {
         if (syncIntervalRef.current) {
@@ -389,17 +324,17 @@ export function HotelProvider({ children }: { children: ReactNode }) {
     }
   }, [isLoading, isOnline])
 
-  // 🔄 Sincronizar quando a aba volta ao foco
+  // Sincronizar quando a aba volta ao foco
   useEffect(() => {
     const handleFocus = () => {
-      if (isInitialized.current && isOnline) {
+      if (isInitialized.current) {
         console.log("👁️ Aba voltou ao foco - sincronizando...")
         syncData(false)
       }
     }
 
     const handleVisibilityChange = () => {
-      if (!document.hidden && isInitialized.current && isOnline) {
+      if (!document.hidden && isInitialized.current) {
         console.log("👁️ Página ficou visível - sincronizando...")
         syncData(false)
       }
@@ -414,18 +349,7 @@ export function HotelProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // 💾 Cache dos dados
-  useEffect(() => {
-    if (rooms.length > 0) {
-      try {
-        localStorage.setItem("hotel_rooms_cache", JSON.stringify(rooms))
-      } catch (e) {
-        console.warn("⚠️ Erro ao salvar cache:", e)
-      }
-    }
-  }, [rooms])
-
-  // 📊 Aplicar filtros
+  // Aplicar filtros
   useEffect(() => {
     let filtered = rooms
 
@@ -454,7 +378,7 @@ export function HotelProvider({ children }: { children: ReactNode }) {
     setFilteredRooms(filtered)
   }, [rooms, filters])
 
-  // 🔍 Funções de busca e filtro
+  // Funções de busca e filtro
   const clearFilters = () => {
     setFilters({
       type: "",
@@ -480,7 +404,7 @@ export function HotelProvider({ children }: { children: ReactNode }) {
     setFilteredRooms(filtered)
   }
 
-  // 🏨 Funções de gerenciamento de quartos
+  // Funções de gerenciamento de quartos
   const addRoom = async (room: Omit<Room, "id" | "status" | "guest">) => {
     try {
       if (!isOnline) {
@@ -489,7 +413,7 @@ export function HotelProvider({ children }: { children: ReactNode }) {
 
       await HotelServiceCloud.createRoom({ ...room, status: "available" })
       await syncData(false)
-      console.log("✅ Quarto adicionado com sucesso")
+      console.log("✅ Quarto adicionado no Supabase")
     } catch (error) {
       console.error("❌ Erro ao adicionar quarto:", error)
       throw error
@@ -504,7 +428,7 @@ export function HotelProvider({ children }: { children: ReactNode }) {
 
       await HotelServiceCloud.updateRoom(roomId, updates)
       await syncData(false)
-      console.log("✅ Quarto atualizado com sucesso")
+      console.log("✅ Quarto atualizado no Supabase")
     } catch (error) {
       console.error("❌ Erro ao atualizar quarto:", error)
       throw error
@@ -519,7 +443,7 @@ export function HotelProvider({ children }: { children: ReactNode }) {
 
       await HotelServiceCloud.deleteRoom(roomId)
       await syncData(false)
-      console.log("✅ Quarto deletado com sucesso")
+      console.log("✅ Quarto deletado no Supabase")
     } catch (error) {
       console.error("❌ Erro ao deletar quarto:", error)
       throw error
@@ -547,14 +471,14 @@ export function HotelProvider({ children }: { children: ReactNode }) {
 
       await HotelServiceCloud.updateRoom(roomId, { status: "available", guest: undefined })
       await syncData(false)
-      console.log("✅ Checkout realizado com sucesso")
+      console.log("✅ Checkout realizado no Supabase")
     } catch (error) {
       console.error("❌ Erro ao fazer checkout:", error)
       throw error
     }
   }
 
-  // 📅 Funções de reserva
+  // Funções de reserva
   const makeReservation = async (reservation: Omit<Reservation, "id" | "createdAt">) => {
     try {
       if (!isOnline) {
@@ -567,7 +491,7 @@ export function HotelProvider({ children }: { children: ReactNode }) {
       const checkInDate = new Date(reservation.guest.checkIn)
       checkInDate.setHours(0, 0, 0, 0)
 
-      console.log("📅 Processando reserva:", {
+      console.log("📅 Comparando datas:", {
         today: today.toDateString(),
         checkIn: checkInDate.toDateString(),
         isToday: checkInDate.getTime() === today.getTime(),
@@ -607,7 +531,7 @@ export function HotelProvider({ children }: { children: ReactNode }) {
       }
 
       await syncData(false)
-      console.log("✅ Reserva criada com sucesso")
+      console.log("✅ Reserva criada no Supabase")
     } catch (error) {
       console.error("❌ Erro ao fazer reserva:", error)
       throw error
@@ -637,14 +561,14 @@ export function HotelProvider({ children }: { children: ReactNode }) {
 
       await HotelServiceCloud.cancelReservation(reservationId)
       await syncData(false)
-      console.log("✅ Reserva cancelada com sucesso")
+      console.log("✅ Reserva cancelada no Supabase")
     } catch (error) {
       console.error("❌ Erro ao cancelar reserva:", error)
       throw error
     }
   }
 
-  // 💰 Função de despesas
+  // Função de despesas
   const addExpenseToRoom = async (roomId: string, expense: Expense) => {
     try {
       if (!isOnline) {
@@ -660,7 +584,7 @@ export function HotelProvider({ children }: { children: ReactNode }) {
 
         await HotelServiceCloud.updateRoom(roomId, { guest: updatedGuest })
         await syncData(false)
-        console.log("✅ Despesa adicionada com sucesso")
+        console.log("✅ Despesa adicionada no Supabase")
       }
     } catch (error) {
       console.error("❌ Erro ao adicionar despesa:", error)
@@ -668,7 +592,7 @@ export function HotelProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // 📊 Funções de estatísticas
+  // Funções de estatísticas
   const getStatistics = (): HotelStatistics => {
     const totalRooms = rooms.length
     const occupiedRooms = rooms.filter((room) => room.status === "occupied").length
@@ -738,7 +662,7 @@ export function HotelProvider({ children }: { children: ReactNode }) {
 
       await HotelServiceCloud.deleteGuestHistory(historyId)
       await syncData(false)
-      console.log("✅ Histórico deletado com sucesso")
+      console.log("✅ Histórico deletado no Supabase")
     } catch (error) {
       console.error("❌ Erro ao deletar histórico:", error)
       throw error

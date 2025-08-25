@@ -2,76 +2,100 @@
 
 import { useHotel } from "@/contexts/hotel-context-cloud"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Slider } from "@/components/ui/slider"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Filter, X } from "lucide-react"
+import { Label } from "@/components/ui/label"
 
 export default function RoomFilters() {
   const { filters, setFilters, clearFilters } = useHotel()
 
-  const roomTypes = ["Solteiro", "Casal", "Casal com AR", "Triplo"]
-  const statusOptions = [
-    { value: "available", label: "Disponível" },
-    { value: "occupied", label: "Ocupado" },
-    { value: "maintenance", label: "Manutenção" },
-    { value: "reserved", label: "Reservado" },
-  ]
+  const handleTypeChange = (value: string) => {
+    setFilters({ ...filters, type: value === "all" ? "" : value })
+  }
 
-  const hasActiveFilters = filters.type || filters.status || filters.minPrice || filters.maxPrice
+  const handleStatusChange = (value: string) => {
+    setFilters({ ...filters, status: value === "all" ? "" : value })
+  }
+
+  const handlePriceChange = (values: number[]) => {
+    setFilters({ ...filters, minPrice: values[0], maxPrice: values[1] })
+  }
+
+  const hasActiveFilters = filters.type || filters.status || filters.minPrice > 0 || filters.maxPrice < 1000
 
   return (
-    <div className="flex gap-2">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="text-xs sm:text-sm bg-transparent">
-            <Filter className="w-4 h-4 mr-1 sm:mr-2" />
-            <span className="hidden sm:inline">Filtros</span>
-            <span className="sm:hidden">Filtrar</span>
-            {hasActiveFilters && <span className="ml-1 bg-blue-600 text-white text-xs rounded-full w-2 h-2"></span>}
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-48 sm:w-56" align="end">
-          <DropdownMenuLabel className="text-sm">Tipo de Quarto</DropdownMenuLabel>
-          {roomTypes.map((type) => (
-            <DropdownMenuItem
-              key={type}
-              onClick={() => setFilters({ ...filters, type: filters.type === type ? "" : type })}
-              className={`text-sm ${filters.type === type ? "bg-blue-50" : ""}`}
-            >
-              {type}
-              {filters.type === type && <span className="ml-auto">✓</span>}
-            </DropdownMenuItem>
-          ))}
-
-          <DropdownMenuSeparator />
-
-          <DropdownMenuLabel className="text-sm">Status</DropdownMenuLabel>
-          {statusOptions.map((option) => (
-            <DropdownMenuItem
-              key={option.value}
-              onClick={() => setFilters({ ...filters, status: filters.status === option.value ? "" : option.value })}
-              className={`text-sm ${filters.status === option.value ? "bg-blue-50" : ""}`}
-            >
-              {option.label}
-              {filters.status === option.value && <span className="ml-auto">✓</span>}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      {hasActiveFilters && (
-        <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs sm:text-sm">
-          <X className="w-4 h-4 mr-1" />
-          <span className="hidden sm:inline">Limpar</span>
-          <span className="sm:hidden">X</span>
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="relative bg-transparent">
+          <Filter className="w-4 h-4 mr-2" />
+          Filtros
+          {hasActiveFilters && <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-600 rounded-full" />}
         </Button>
-      )}
-    </div>
+      </PopoverTrigger>
+      <PopoverContent className="w-80" align="end">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="font-medium">Filtros</h4>
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                <X className="w-4 h-4 mr-1" />
+                Limpar
+              </Button>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Tipo de Quarto</Label>
+            <Select value={filters.type || "all"} onValueChange={handleTypeChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Todos os tipos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os tipos</SelectItem>
+                <SelectItem value="Solteiro">Solteiro</SelectItem>
+                <SelectItem value="Casal">Casal</SelectItem>
+                <SelectItem value="Triplo">Triplo</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select value={filters.status || "all"} onValueChange={handleStatusChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Todos os status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os status</SelectItem>
+                <SelectItem value="available">Disponível</SelectItem>
+                <SelectItem value="occupied">Ocupado</SelectItem>
+                <SelectItem value="maintenance">Manutenção</SelectItem>
+                <SelectItem value="reserved">Reservado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Faixa de Preço (R$)</Label>
+            <div className="px-2">
+              <Slider
+                value={[filters.minPrice, filters.maxPrice]}
+                onValueChange={handlePriceChange}
+                max={1000}
+                min={0}
+                step={10}
+                className="w-full"
+              />
+              <div className="flex justify-between text-sm text-gray-500 mt-1">
+                <span>R$ {filters.minPrice}</span>
+                <span>R$ {filters.maxPrice}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }
