@@ -6,11 +6,11 @@ import { HotelServiceCloud } from "@/lib/hotel-service-cloud"
 
 interface AuthContextType {
   user: User | null
-  isAuthenticated: boolean
   login: (email: string, password: string) => Promise<void>
-  register: (userData: any) => Promise<void>
   logout: () => void
+  register: (userData: Omit<User, "id">) => Promise<void>
   isLoading: boolean
+  error: string | null
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -18,9 +18,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
+  // Verificar se há usuário logado no localStorage
   useEffect(() => {
-    // Verificar se há usuário logado no localStorage
     const savedUser = localStorage.getItem("hotel_current_user")
     if (savedUser) {
       try {
@@ -35,23 +36,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
+      setIsLoading(true)
+      setError(null)
+
       const userData = await HotelServiceCloud.authenticateUser(email, password)
       setUser(userData)
       localStorage.setItem("hotel_current_user", JSON.stringify(userData))
-    } catch (error) {
-      console.error("Erro no login:", error)
+    } catch (error: any) {
+      setError(error.message)
       throw error
-    }
-  }
-
-  const register = async (userData: any) => {
-    try {
-      await HotelServiceCloud.createUser(userData)
-      // Após registro, fazer login automaticamente
-      await login(userData.email, userData.password)
-    } catch (error) {
-      console.error("Erro no registro:", error)
-      throw error
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -60,15 +55,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("hotel_current_user")
   }
 
+  const register = async (userData: Omit<User, "id">) => {
+    try {
+      setIsLoading(true)
+      setError(null)
+
+      const userId = await HotelServiceCloud.createUser(userData)
+      const newUser = { ...userData, id: userId }
+      setUser(newUser)
+      localStorage.setItem("hotel_current_user", JSON.stringify(newUser))
+    } catch (error: any) {
+      setError(error.message)
+      throw error
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <AuthContext.Provider
       value={{
         user,
-        isAuthenticated: !!user,
         login,
-        register,
         logout,
+        register,
         isLoading,
+        error,
       }}
     >
       {children}

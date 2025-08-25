@@ -125,6 +125,15 @@
     max-width: calc(100vw - 2rem);
     max-height: calc(100vh - 2rem);
   }
+
+  /* Melhorias para mobile */
+  .mobile-scroll {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-tap {
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
 /* Responsive utilities */

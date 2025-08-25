@@ -8,7 +8,7 @@ import { HotelProvider } from "@/contexts/hotel-context-cloud"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Hotel Management System",
+  title: "Sistema de Hotel",
   description: "Sistema completo de gerenciamento hoteleiro",
     generator: 'v0.app'
 }

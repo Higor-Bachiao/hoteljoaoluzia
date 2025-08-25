@@ -14,7 +14,7 @@ interface GuestHistory {
 }
 
 export class HotelServiceCloud {
-  // Dados padrão do sistema
+  // Dados padrão do sistema - garantindo que sempre temos quartos
   static getDefaultRooms(): Room[] {
     return [
       {
@@ -100,34 +100,75 @@ export class HotelServiceCloud {
     ]
   }
 
+  // Função para inicializar quartos padrão no Supabase se não existirem
+  static async initializeDefaultRooms(): Promise<void> {
+    try {
+      const { data: existingRooms, error } = await supabase.from("rooms").select("id").limit(1)
+
+      if (error) {
+        console.warn("Erro ao verificar quartos existentes:", error)
+        return
+      }
+
+      // Se não há quartos, criar os padrão
+      if (!existingRooms || existingRooms.length === 0) {
+        console.log("Inicializando quartos padrão no Supabase...")
+        const defaultRooms = this.getDefaultRooms()
+
+        for (const room of defaultRooms) {
+          await supabase.from("rooms").insert({
+            id: room.id,
+            number: room.number,
+            type: room.type,
+            capacity: room.capacity,
+            beds: room.beds,
+            price: room.price,
+            amenities: room.amenities,
+            status: room.status,
+            guest_data: null,
+          })
+        }
+        console.log("Quartos padrão inicializados com sucesso")
+      }
+    } catch (error) {
+      console.warn("Erro ao inicializar quartos padrão:", error)
+    }
+  }
+
   // ==================== ROOMS ====================
   static async getAllRooms(): Promise<Room[]> {
     try {
+      // Primeiro, tentar inicializar quartos padrão se necessário
+      await this.initializeDefaultRooms()
+
       const { data, error } = await supabase.from("rooms").select("*").order("number")
 
       if (error) {
-        console.warn("Supabase não disponível, usando dados padrão")
+        console.warn("Erro ao buscar quartos do Supabase, usando dados padrão:", error)
         return this.getDefaultRooms()
       }
 
       if (!data || data.length === 0) {
-        console.log("Nenhum quarto no Supabase, usando dados padrão")
+        console.log("Nenhum quarto encontrado no Supabase, retornando dados padrão")
         return this.getDefaultRooms()
       }
 
-      return data.map((row: any) => ({
+      const rooms = data.map((row: any) => ({
         id: row.id,
         number: row.number,
         type: row.type,
         capacity: row.capacity,
         beds: row.beds,
-        price: Number.parseFloat(row.price),
-        amenities: row.amenities || [],
+        price: Number.parseFloat(row.price.toString()),
+        amenities: Array.isArray(row.amenities) ? row.amenities : [],
         status: row.status,
         guest: row.guest_data || undefined,
       }))
+
+      console.log(`Carregados ${rooms.length} quartos do Supabase`)
+      return rooms
     } catch (error) {
-      console.warn("Erro ao conectar com Supabase, usando dados padrão:", error)
+      console.warn("Erro de conexão com Supabase, usando dados padrão:", error)
       return this.getDefaultRooms()
     }
   }
@@ -150,6 +191,7 @@ export class HotelServiceCloud {
         .single()
 
       if (error) throw error
+      console.log("Quarto criado com sucesso:", data.id)
       return data.id
     } catch (error) {
       console.error("Erro ao criar quarto:", error)
@@ -161,18 +203,19 @@ export class HotelServiceCloud {
     try {
       const updateData: any = {}
 
-      if (updates.number) updateData.number = updates.number
-      if (updates.type) updateData.type = updates.type
-      if (updates.capacity) updateData.capacity = updates.capacity
-      if (updates.beds) updateData.beds = updates.beds
+      if (updates.number !== undefined) updateData.number = updates.number
+      if (updates.type !== undefined) updateData.type = updates.type
+      if (updates.capacity !== undefined) updateData.capacity = updates.capacity
+      if (updates.beds !== undefined) updateData.beds = updates.beds
       if (updates.price !== undefined) updateData.price = updates.price
-      if (updates.amenities) updateData.amenities = updates.amenities
-      if (updates.status) updateData.status = updates.status
+      if (updates.amenities !== undefined) updateData.amenities = updates.amenities
+      if (updates.status !== undefined) updateData.status = updates.status
       if (updates.guest !== undefined) updateData.guest_data = updates.guest
 
       const { error } = await supabase.from("rooms").update(updateData).eq("id", id)
 
       if (error) throw error
+      console.log("Quarto atualizado com sucesso:", id)
     } catch (error) {
       console.error("Erro ao atualizar quarto:", error)
       throw error
@@ -183,6 +226,7 @@ export class HotelServiceCloud {
     try {
       const { error } = await supabase.from("rooms").delete().eq("id", id)
       if (error) throw error
+      console.log("Quarto deletado com sucesso:", id)
     } catch (error) {
       console.error("Erro ao deletar quarto:", error)
       throw error
@@ -199,12 +243,15 @@ export class HotelServiceCloud {
         return []
       }
 
-      return data.map((row: any) => ({
+      const reservations = data.map((row: any) => ({
         id: row.id,
         roomId: row.room_id,
         guest: row.guest_data,
         createdAt: row.created_at,
       }))
+
+      console.log(`Carregadas ${reservations.length} reservas futuras`)
+      return reservations
     } catch (error) {
       console.warn("Erro ao buscar reservas:", error)
       return []
@@ -223,6 +270,7 @@ export class HotelServiceCloud {
         .single()
 
       if (error) throw error
+      console.log("Reserva criada com sucesso:", data.id)
       return data.id
     } catch (error) {
       console.error("Erro ao criar reserva:", error)
@@ -234,6 +282,7 @@ export class HotelServiceCloud {
     try {
       const { error } = await supabase.from("reservations").delete().eq("id", reservationId)
       if (error) throw error
+      console.log("Reserva cancelada com sucesso:", reservationId)
     } catch (error) {
       console.error("Erro ao cancelar reserva:", error)
       throw error
@@ -250,17 +299,20 @@ export class HotelServiceCloud {
         return []
       }
 
-      return data.map((row: any) => ({
+      const history = data.map((row: any) => ({
         id: row.id,
         guest: row.guest_data,
         roomNumber: row.room_number,
         roomType: row.room_type,
         checkInDate: row.check_in_date,
         checkOutDate: row.check_out_date,
-        totalPrice: Number.parseFloat(row.total_price),
+        totalPrice: Number.parseFloat(row.total_price.toString()),
         status: row.status,
         createdAt: row.created_at,
       }))
+
+      console.log(`Carregado histórico de ${history.length} hóspedes`)
+      return history
     } catch (error) {
       console.warn("Erro ao buscar histórico:", error)
       return []
@@ -284,6 +336,7 @@ export class HotelServiceCloud {
         .single()
 
       if (error) throw error
+      console.log("Histórico adicionado com sucesso:", data.id)
       return data.id
     } catch (error) {
       console.error("Erro ao adicionar histórico:", error)
@@ -294,7 +347,9 @@ export class HotelServiceCloud {
   static async updateGuestHistoryStatus(id: string, status: string): Promise<void> {
     try {
       const { error } = await supabase.from("guest_history").update({ status }).eq("id", id)
+
       if (error) throw error
+      console.log("Status do histórico atualizado:", id, status)
     } catch (error) {
       console.error("Erro ao atualizar status do histórico:", error)
       throw error
@@ -305,6 +360,7 @@ export class HotelServiceCloud {
     try {
       const { error } = await supabase.from("guest_history").delete().eq("id", id)
       if (error) throw error
+      console.log("Histórico deletado com sucesso:", id)
     } catch (error) {
       console.error("Erro ao deletar histórico:", error)
       throw error
@@ -355,15 +411,33 @@ export class HotelServiceCloud {
     return userConfig.user
   }
 
-  static async createUser(userData: any): Promise<string> {
-    try {
-      // Simulação de criação de usuário
-      const userId = `user_${Date.now()}`
-      console.log("Usuário criado:", userId)
-      return userId
-    } catch (error) {
-      console.error("Erro ao criar usuário:", error)
-      throw error
+  // ==================== REAL-TIME SYNC ====================
+  static subscribeToChanges(callback: () => void) {
+    const channels = [
+      supabase.channel("rooms-changes").on("postgres_changes", { event: "*", schema: "public", table: "rooms" }, () => {
+        console.log("Mudança detectada em rooms")
+        callback()
+      }),
+
+      supabase
+        .channel("reservations-changes")
+        .on("postgres_changes", { event: "*", schema: "public", table: "reservations" }, () => {
+          console.log("Mudança detectada em reservations")
+          callback()
+        }),
+
+      supabase
+        .channel("history-changes")
+        .on("postgres_changes", { event: "*", schema: "public", table: "guest_history" }, () => {
+          console.log("Mudança detectada em guest_history")
+          callback()
+        }),
+    ]
+
+    channels.forEach((channel) => channel.subscribe())
+
+    return () => {
+      channels.forEach((channel) => supabase.removeChannel(channel))
     }
   }
 }
