@@ -17,7 +17,7 @@ export default function Home() {
                 </div>
               }
             >
-              <HotelDashboard />
+              {HotelDashboard}
             </Suspense>
           </div>
         </HotelProvider>

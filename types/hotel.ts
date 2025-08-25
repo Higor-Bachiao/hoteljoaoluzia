@@ -4,28 +4,26 @@ export interface Room {
   type: string
   capacity: number
   beds: number
-  price: number // Preço por pessoa
+  price: number
   amenities: string[]
   status: "available" | "occupied" | "maintenance" | "reserved"
   guest?: Guest
 }
 
-// Novo: Interface para despesas
+export interface Guest {
+  name: string
+  email?: string
+  phone?: string
+  cpf?: string
+  guests: number
+  checkIn: string
+  checkOut: string
+  expenses?: Expense[]
+}
+
 export interface Expense {
   description: string
   value: number
-}
-
-// Atualizado: Campos email, cpf e phone agora são opcionais
-export interface Guest {
-  name: string
-  email?: string // Agora opcional
-  phone?: string // Agora opcional
-  cpf?: string // Agora opcional
-  checkIn: string
-  checkOut: string
-  guests: number
-  expenses?: Expense[]
 }
 
 export interface Reservation {
@@ -52,4 +50,12 @@ export interface HotelStatistics {
   roomsByType: Record<string, number>
   monthlyRevenue: number
   activeGuests: number
+}
+
+export interface User {
+  id: string
+  name: string
+  email: string
+  role: "admin" | "staff" | "guest"
+  phone?: string
 }

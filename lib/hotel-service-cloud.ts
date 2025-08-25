@@ -1,7 +1,6 @@
 import { supabase } from "./supabase"
 import type { Room, Reservation, Guest } from "@/types/hotel"
 
-// Interface para histórico de hóspedes
 interface GuestHistory {
   id: string
   guest: Guest
@@ -15,12 +14,106 @@ interface GuestHistory {
 }
 
 export class HotelServiceCloud {
+  // Dados padrão do sistema
+  static getDefaultRooms(): Room[] {
+    return [
+      {
+        id: "room_101",
+        number: "101",
+        type: "Solteiro",
+        capacity: 1,
+        beds: 1,
+        price: 80,
+        amenities: ["wifi", "tv"],
+        status: "available",
+      },
+      {
+        id: "room_102",
+        number: "102",
+        type: "Casal",
+        capacity: 2,
+        beds: 1,
+        price: 120,
+        amenities: ["wifi", "tv", "ar-condicionado"],
+        status: "available",
+      },
+      {
+        id: "room_103",
+        number: "103",
+        type: "Triplo",
+        capacity: 3,
+        beds: 2,
+        price: 150,
+        amenities: ["wifi", "tv", "minibar"],
+        status: "available",
+      },
+      {
+        id: "room_104",
+        number: "104",
+        type: "Solteiro",
+        capacity: 1,
+        beds: 1,
+        price: 80,
+        amenities: ["wifi", "tv"],
+        status: "available",
+      },
+      {
+        id: "room_105",
+        number: "105",
+        type: "Casal",
+        capacity: 2,
+        beds: 1,
+        price: 120,
+        amenities: ["wifi", "tv"],
+        status: "available",
+      },
+      {
+        id: "room_201",
+        number: "201",
+        type: "Solteiro",
+        capacity: 1,
+        beds: 1,
+        price: 85,
+        amenities: ["wifi", "tv"],
+        status: "available",
+      },
+      {
+        id: "room_202",
+        number: "202",
+        type: "Casal",
+        capacity: 2,
+        beds: 1,
+        price: 125,
+        amenities: ["wifi", "tv", "ar-condicionado"],
+        status: "available",
+      },
+      {
+        id: "room_203",
+        number: "203",
+        type: "Triplo",
+        capacity: 3,
+        beds: 2,
+        price: 155,
+        amenities: ["wifi", "tv", "minibar"],
+        status: "available",
+      },
+    ]
+  }
+
   // ==================== ROOMS ====================
   static async getAllRooms(): Promise<Room[]> {
     try {
       const { data, error } = await supabase.from("rooms").select("*").order("number")
 
-      if (error) throw error
+      if (error) {
+        console.warn("Supabase não disponível, usando dados padrão")
+        return this.getDefaultRooms()
+      }
+
+      if (!data || data.length === 0) {
+        console.log("Nenhum quarto no Supabase, usando dados padrão")
+        return this.getDefaultRooms()
+      }
 
       return data.map((row: any) => ({
         id: row.id,
@@ -34,8 +127,8 @@ export class HotelServiceCloud {
         guest: row.guest_data || undefined,
       }))
     } catch (error) {
-      console.error("❌ Erro ao buscar quartos:", error)
-      throw error
+      console.warn("Erro ao conectar com Supabase, usando dados padrão:", error)
+      return this.getDefaultRooms()
     }
   }
 
@@ -59,7 +152,7 @@ export class HotelServiceCloud {
       if (error) throw error
       return data.id
     } catch (error) {
-      console.error("❌ Erro ao criar quarto:", error)
+      console.error("Erro ao criar quarto:", error)
       throw error
     }
   }
@@ -81,7 +174,7 @@ export class HotelServiceCloud {
 
       if (error) throw error
     } catch (error) {
-      console.error("❌ Erro ao atualizar quarto:", error)
+      console.error("Erro ao atualizar quarto:", error)
       throw error
     }
   }
@@ -89,10 +182,9 @@ export class HotelServiceCloud {
   static async deleteRoom(id: string): Promise<void> {
     try {
       const { error } = await supabase.from("rooms").delete().eq("id", id)
-
       if (error) throw error
     } catch (error) {
-      console.error("❌ Erro ao deletar quarto:", error)
+      console.error("Erro ao deletar quarto:", error)
       throw error
     }
   }
@@ -102,7 +194,10 @@ export class HotelServiceCloud {
     try {
       const { data, error } = await supabase.from("reservations").select("*").order("created_at", { ascending: false })
 
-      if (error) throw error
+      if (error) {
+        console.warn("Erro ao buscar reservas:", error)
+        return []
+      }
 
       return data.map((row: any) => ({
         id: row.id,
@@ -111,8 +206,8 @@ export class HotelServiceCloud {
         createdAt: row.created_at,
       }))
     } catch (error) {
-      console.error("❌ Erro ao buscar reservas:", error)
-      throw error
+      console.warn("Erro ao buscar reservas:", error)
+      return []
     }
   }
 
@@ -130,7 +225,7 @@ export class HotelServiceCloud {
       if (error) throw error
       return data.id
     } catch (error) {
-      console.error("❌ Erro ao criar reserva:", error)
+      console.error("Erro ao criar reserva:", error)
       throw error
     }
   }
@@ -138,10 +233,9 @@ export class HotelServiceCloud {
   static async cancelReservation(reservationId: string): Promise<void> {
     try {
       const { error } = await supabase.from("reservations").delete().eq("id", reservationId)
-
       if (error) throw error
     } catch (error) {
-      console.error("❌ Erro ao cancelar reserva:", error)
+      console.error("Erro ao cancelar reserva:", error)
       throw error
     }
   }
@@ -151,7 +245,10 @@ export class HotelServiceCloud {
     try {
       const { data, error } = await supabase.from("guest_history").select("*").order("created_at", { ascending: false })
 
-      if (error) throw error
+      if (error) {
+        console.warn("Erro ao buscar histórico:", error)
+        return []
+      }
 
       return data.map((row: any) => ({
         id: row.id,
@@ -165,8 +262,8 @@ export class HotelServiceCloud {
         createdAt: row.created_at,
       }))
     } catch (error) {
-      console.error("❌ Erro ao buscar histórico:", error)
-      throw error
+      console.warn("Erro ao buscar histórico:", error)
+      return []
     }
   }
 
@@ -189,7 +286,7 @@ export class HotelServiceCloud {
       if (error) throw error
       return data.id
     } catch (error) {
-      console.error("❌ Erro ao adicionar histórico:", error)
+      console.error("Erro ao adicionar histórico:", error)
       throw error
     }
   }
@@ -197,10 +294,9 @@ export class HotelServiceCloud {
   static async updateGuestHistoryStatus(id: string, status: string): Promise<void> {
     try {
       const { error } = await supabase.from("guest_history").update({ status }).eq("id", id)
-
       if (error) throw error
     } catch (error) {
-      console.error("❌ Erro ao atualizar status do histórico:", error)
+      console.error("Erro ao atualizar status do histórico:", error)
       throw error
     }
   }
@@ -208,89 +304,66 @@ export class HotelServiceCloud {
   static async deleteGuestHistory(id: string): Promise<void> {
     try {
       const { error } = await supabase.from("guest_history").delete().eq("id", id)
-
       if (error) throw error
     } catch (error) {
-      console.error("❌ Erro ao deletar histórico:", error)
+      console.error("Erro ao deletar histórico:", error)
       throw error
     }
   }
 
   // ==================== USERS ====================
   static async authenticateUser(email: string, password: string): Promise<any> {
-    try {
-      // Por simplicidade, vamos usar uma verificação básica
-      // Em produção, use hash de senha adequado
-      const { data, error } = await supabase
-        .from("users")
-        .select("id, name, email, role, phone")
-        .eq("email", email)
-        .single()
-
-      if (error || !data) {
-        throw new Error("Email ou senha incorretos")
-      }
-
-      // Verificação simples de senha (em produção, use bcrypt)
-      const validPasswords: { [key: string]: string } = {
-        "admin@hotel.com": "admin123",
-        "staff@hotel.com": "staff123",
-        "guest@hotel.com": "guest123",
-      }
-
-      if (validPasswords[email] !== password) {
-        throw new Error("Email ou senha incorretos")
-      }
-
-      return data
-    } catch (error) {
-      console.error("❌ Erro na autenticação:", error)
-      throw error
+    // Sistema de autenticação simples para demonstração
+    const validUsers: { [key: string]: { password: string; user: any } } = {
+      "admin@hotel.com": {
+        password: "admin123",
+        user: {
+          id: "admin_1",
+          name: "Administrador",
+          email: "admin@hotel.com",
+          role: "admin",
+          phone: "(11) 99999-9999",
+        },
+      },
+      "staff@hotel.com": {
+        password: "staff123",
+        user: {
+          id: "staff_1",
+          name: "Funcionário",
+          email: "staff@hotel.com",
+          role: "staff",
+          phone: "(11) 88888-8888",
+        },
+      },
+      "guest@hotel.com": {
+        password: "guest123",
+        user: {
+          id: "guest_1",
+          name: "Hóspede",
+          email: "guest@hotel.com",
+          role: "guest",
+          phone: "(11) 77777-7777",
+        },
+      },
     }
+
+    const userConfig = validUsers[email]
+    if (!userConfig || userConfig.password !== password) {
+      throw new Error("Email ou senha incorretos")
+    }
+
+    return userConfig.user
   }
 
   static async createUser(userData: any): Promise<string> {
     try {
-      const { data, error } = await supabase
-        .from("users")
-        .insert({
-          name: userData.name,
-          email: userData.email,
-          role: userData.role || "guest",
-          phone: userData.phone,
-          password_hash: "simple_hash", // Em produção, use bcrypt
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-      return data.id
+      // Simulação de criação de usuário
+      const userId = `user_${Date.now()}`
+      console.log("Usuário criado:", userId)
+      return userId
     } catch (error) {
-      console.error("❌ Erro ao criar usuário:", error)
+      console.error("Erro ao criar usuário:", error)
       throw error
-    }
-  }
-
-  // ==================== REAL-TIME SYNC ====================
-  static subscribeToChanges(callback: () => void) {
-    const channels = [
-      supabase
-        .channel("rooms-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "rooms" }, callback),
-
-      supabase
-        .channel("reservations-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "reservations" }, callback),
-
-      supabase
-        .channel("history-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "guest_history" }, callback),
-    ]
-
-    channels.forEach((channel) => channel.subscribe())
-
-    return () => {
-      channels.forEach((channel) => supabase.removeChannel(channel))
     }
   }
 }

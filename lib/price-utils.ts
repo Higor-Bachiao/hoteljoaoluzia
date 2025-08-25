@@ -1,31 +1,22 @@
-import type { Expense } from "@/types/hotel" // Importar Expense
+import type { Expense } from "@/types/hotel"
 
-// Função para calcular o número de noites
-export function getNumberOfNights(checkInDate: string, checkOutDate: string): number {
-  if (!checkInDate || !checkOutDate) {
-    return 0
-  }
-  const checkIn = new Date(checkInDate)
-  const checkOut = new Date(checkOutDate)
-
-  const diffTime = Math.abs(checkOut.getTime() - checkIn.getTime())
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-  return diffDays > 0 ? diffDays : 1
+export function getNumberOfNights(checkIn: string, checkOut: string): number {
+  const checkInDate = new Date(checkIn)
+  const checkOutDate = new Date(checkOut)
+  const timeDiff = checkOutDate.getTime() - checkInDate.getTime()
+  const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24))
+  return Math.max(1, daysDiff)
 }
 
-// Função para calcular o preço total da estadia, incluindo despesas
 export function calculateTotalStayPrice(
-  basePricePerPerson: number,
+  pricePerPersonPerNight: number,
   numberOfGuests: number,
-  checkInDate: string, // Formato YYYY-MM-DD
-  checkOutDate: string, // Formato YYYY-MM-DD
-  additionalExpenses: Expense[] = [], // Novo parâmetro opcional
+  checkIn: string,
+  checkOut: string,
+  expenses: Expense[] = [],
 ): number {
-  const nights = getNumberOfNights(checkInDate, checkOutDate)
-  const stayPrice = basePricePerPerson * numberOfGuests * nights
-
-  const totalExpenses = additionalExpenses.reduce((sum, expense) => sum + expense.value, 0)
-
-  return stayPrice + totalExpenses
+  const nights = getNumberOfNights(checkIn, checkOut)
+  const roomPrice = pricePerPersonPerNight * numberOfGuests * nights
+  const expensesTotal = expenses.reduce((sum, expense) => sum + expense.value, 0)
+  return roomPrice + expensesTotal
 }

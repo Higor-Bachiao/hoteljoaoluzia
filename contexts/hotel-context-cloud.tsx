@@ -5,7 +5,6 @@ import type { Room, Reservation, HotelFilters, HotelStatistics, Expense, Guest }
 import { getNumberOfNights } from "@/lib/price-utils"
 import { HotelServiceCloud } from "@/lib/hotel-service-cloud"
 
-// Interface para histórico de hóspedes
 interface GuestHistory {
   id: string
   guest: Guest
@@ -49,111 +48,6 @@ interface HotelContextType {
 
 const HotelContext = createContext<HotelContextType | undefined>(undefined)
 
-// Dados padrão do sistema
-const getDefaultRooms = (): Room[] => [
-  {
-    id: "room_101",
-    number: "101",
-    type: "Solteiro",
-    capacity: 1,
-    beds: 1,
-    price: 80,
-    amenities: ["wifi", "tv"],
-    status: "available",
-  },
-  {
-    id: "room_102",
-    number: "102",
-    type: "Casal",
-    capacity: 2,
-    beds: 1,
-    price: 120,
-    amenities: ["wifi", "tv", "ar-condicionado"],
-    status: "available",
-  },
-  {
-    id: "room_103",
-    number: "103",
-    type: "Triplo",
-    capacity: 3,
-    beds: 2,
-    price: 150,
-    amenities: ["wifi", "tv", "minibar"],
-    status: "available",
-  },
-  {
-    id: "room_104",
-    number: "104",
-    type: "Solteiro",
-    capacity: 1,
-    beds: 1,
-    price: 80,
-    amenities: ["wifi", "tv"],
-    status: "available",
-  },
-  {
-    id: "room_105",
-    number: "105",
-    type: "Casal",
-    capacity: 2,
-    beds: 1,
-    price: 120,
-    amenities: ["wifi", "tv"],
-    status: "available",
-  },
-  {
-    id: "room_201",
-    number: "201",
-    type: "Solteiro",
-    capacity: 1,
-    beds: 1,
-    price: 85,
-    amenities: ["wifi", "tv"],
-    status: "available",
-  },
-  {
-    id: "room_202",
-    number: "202",
-    type: "Casal",
-    capacity: 2,
-    beds: 1,
-    price: 125,
-    amenities: ["wifi", "tv", "ar-condicionado"],
-    status: "available",
-  },
-  {
-    id: "room_203",
-    number: "203",
-    type: "Triplo",
-    capacity: 3,
-    beds: 2,
-    price: 155,
-    amenities: ["wifi", "tv", "minibar"],
-    status: "available",
-  },
-]
-
-const validateRoom = (room: any): room is Room => {
-  return (
-    room &&
-    typeof room.id === "string" &&
-    typeof room.number === "string" &&
-    typeof room.type === "string" &&
-    typeof room.capacity === "number" &&
-    typeof room.beds === "number" &&
-    typeof room.price === "number" &&
-    Array.isArray(room.amenities) &&
-    ["available", "occupied", "maintenance", "reserved"].includes(room.status)
-  )
-}
-
-const validateRooms = (rooms: any[]): Room[] => {
-  if (!Array.isArray(rooms)) return getDefaultRooms()
-  const validRooms = rooms.filter(validateRoom)
-  if (validRooms.length === 0) return getDefaultRooms()
-  return validRooms
-}
-
 export function HotelProvider({ children }: { children: ReactNode }) {
   const [rooms, setRooms] = useState<Room[]>([])
   const [filteredRooms, setFilteredRooms] = useState<Room[]>([])
@@ -164,7 +58,6 @@ export function HotelProvider({ children }: { children: ReactNode }) {
   const [lastSync, setLastSync] = useState<Date | null>(null)
   const [isOnline, setIsOnline] = useState(true)
   const syncIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  const isInitialized = useRef(false)
 
   const [filters, setFilters] = useState<HotelFilters>({
     type: "",
@@ -177,12 +70,9 @@ export function HotelProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true)
-      console.log("🌐 Conexão restaurada")
+      syncData()
     }
-    const handleOffline = () => {
-      setIsOnline(false)
-      console.log("🌐 Conexão perdida")
-    }
+    const handleOffline = () => setIsOnline(false)
 
     setIsOnline(navigator.onLine)
     window.addEventListener("online", handleOnline)
@@ -194,75 +84,48 @@ export function HotelProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Função para sincronizar dados com Supabase
+  // Função para sincronizar dados
   const syncData = async (silent = true) => {
-    if (!isOnline) {
-      if (!silent) console.log("📴 Offline - pulando sincronização")
-      return
-    }
-
     try {
       if (!silent) {
-        console.log("🔄 Sincronizando dados com Supabase...")
         setError(null)
+        console.log("Sincronizando dados...")
       }
 
-      // Tentar buscar dados do Supabase
       const [roomsData, reservationsData, historyData] = await Promise.all([
-        HotelServiceCloud.getAllRooms().catch(() => []),
-        HotelServiceCloud.getFutureReservations().catch(() => []),
-        HotelServiceCloud.getGuestHistory().catch(() => []),
+        HotelServiceCloud.getAllRooms(),
+        HotelServiceCloud.getFutureReservations(),
+        HotelServiceCloud.getGuestHistory(),
       ])
 
-      // Validar e definir dados
-      const validatedRooms = validateRooms(roomsData)
-
-      setRooms(validatedRooms)
-      setFutureReservations(Array.isArray(reservationsData) ? reservationsData : [])
-      setGuestHistory(Array.isArray(historyData) ? historyData : [])
+      setRooms(roomsData)
+      setFutureReservations(reservationsData)
+      setGuestHistory(historyData)
       setLastSync(new Date())
       setError(null)
 
       if (!silent) {
-        console.log("✅ Dados sincronizados com sucesso")
-        console.log(`📊 ${validatedRooms.length} quartos carregados`)
+        console.log(`Dados sincronizados: ${roomsData.length} quartos`)
       }
     } catch (error: any) {
-      console.error("❌ Erro na sincronização:", error)
-
-      // Se é a primeira vez e falhou, usar dados padrão
-      if (!isInitialized.current) {
-        console.log("🔧 Primeira sincronização falhou, usando dados padrão")
-        const defaultRooms = getDefaultRooms()
-        setRooms(defaultRooms)
-        setFutureReservations([])
-        setGuestHistory([])
-      }
-
+      console.error("Erro na sincronização:", error)
       setError(`Erro de sincronização: ${error.message}`)
     }
   }
 
-  // Função para reset completo dos dados
+  // Função para reset dos dados
   const resetData = async () => {
     try {
-      console.log("🔄 Resetando dados...")
       setIsLoading(true)
-
-      // Limpar localStorage
       localStorage.removeItem("hotel_current_user")
 
-      // Resetar para dados padrão
-      const defaultRooms = getDefaultRooms()
+      const defaultRooms = HotelServiceCloud.getDefaultRooms()
       setRooms(defaultRooms)
       setFutureReservations([])
       setGuestHistory([])
       setError(null)
       setLastSync(new Date())
-
-      console.log("✅ Dados resetados com sucesso")
     } catch (error: any) {
-      console.error("❌ Erro ao resetar dados:", error)
       setError(`Erro ao resetar: ${error.message}`)
     } finally {
       setIsLoading(false)
@@ -271,7 +134,6 @@ export function HotelProvider({ children }: { children: ReactNode }) {
 
   // Função para forçar refresh
   const forceRefresh = async () => {
-    console.log("🔄 Forçando refresh completo...")
     setIsLoading(true)
     await syncData(false)
     setIsLoading(false)
@@ -282,21 +144,9 @@ export function HotelProvider({ children }: { children: ReactNode }) {
     const loadInitialData = async () => {
       try {
         setIsLoading(true)
-        console.log("🚀 Carregando dados iniciais...")
-
-        // Tentar sincronizar com Supabase
         await syncData(false)
-
-        isInitialized.current = true
-        console.log("✅ Dados iniciais carregados")
       } catch (error: any) {
-        console.error("❌ Erro ao carregar dados:", error)
-
-        // Fallback para dados padrão
-        const defaultRooms = getDefaultRooms()
-        setRooms(defaultRooms)
-        setFutureReservations([])
-        setGuestHistory([])
+        console.error("Erro ao carregar dados:", error)
         setError(`Erro ao carregar dados: ${error.message}`)
       } finally {
         setIsLoading(false)
@@ -306,48 +156,20 @@ export function HotelProvider({ children }: { children: ReactNode }) {
     loadInitialData()
   }, [])
 
-  // Configurar sincronização automática
+  // Sincronização automática
   useEffect(() => {
-    if (!isLoading && isOnline && isInitialized.current) {
-      console.log("⏰ Iniciando sincronização automática (30s)")
-
+    if (!isLoading && isOnline) {
       syncIntervalRef.current = setInterval(() => {
-        syncData(true) // silent = true
+        syncData(true)
       }, 30000) // 30 segundos
 
       return () => {
         if (syncIntervalRef.current) {
           clearInterval(syncIntervalRef.current)
-          console.log("⏹️ Sincronização automática parada")
         }
       }
     }
   }, [isLoading, isOnline])
-
-  // Sincronizar quando a aba volta ao foco
-  useEffect(() => {
-    const handleFocus = () => {
-      if (isInitialized.current) {
-        console.log("👁️ Aba voltou ao foco - sincronizando...")
-        syncData(false)
-      }
-    }
-
-    const handleVisibilityChange = () => {
-      if (!document.hidden && isInitialized.current) {
-        console.log("👁️ Página ficou visível - sincronizando...")
-        syncData(false)
-      }
-    }
-
-    window.addEventListener("focus", handleFocus)
-    document.addEventListener("visibilitychange", handleVisibilityChange)
-
-    return () => {
-      window.removeEventListener("focus", handleFocus)
-      document.removeEventListener("visibilitychange", handleVisibilityChange)
-    }
-  }, [])
 
   // Aplicar filtros
   useEffect(() => {
@@ -358,13 +180,7 @@ export function HotelProvider({ children }: { children: ReactNode }) {
     }
 
     if (filters.status) {
-      filtered = filtered.filter((room) => {
-        if (filters.status === "available") {
-          return room.status === "available"
-        } else {
-          return room.status === filters.status
-        }
-      })
+      filtered = filtered.filter((room) => room.status === filters.status)
     }
 
     if (filters.minPrice > 0) {
@@ -407,55 +223,33 @@ export function HotelProvider({ children }: { children: ReactNode }) {
   // Funções de gerenciamento de quartos
   const addRoom = async (room: Omit<Room, "id" | "status" | "guest">) => {
     try {
-      if (!isOnline) {
-        throw new Error("Sem conexão com a internet")
-      }
-
       await HotelServiceCloud.createRoom({ ...room, status: "available" })
       await syncData(false)
-      console.log("✅ Quarto adicionado no Supabase")
     } catch (error) {
-      console.error("❌ Erro ao adicionar quarto:", error)
       throw error
     }
   }
 
   const updateRoom = async (roomId: string, updates: Partial<Room>) => {
     try {
-      if (!isOnline) {
-        throw new Error("Sem conexão com a internet")
-      }
-
       await HotelServiceCloud.updateRoom(roomId, updates)
       await syncData(false)
-      console.log("✅ Quarto atualizado no Supabase")
     } catch (error) {
-      console.error("❌ Erro ao atualizar quarto:", error)
       throw error
     }
   }
 
   const deleteRoom = async (roomId: string) => {
     try {
-      if (!isOnline) {
-        throw new Error("Sem conexão com a internet")
-      }
-
       await HotelServiceCloud.deleteRoom(roomId)
       await syncData(false)
-      console.log("✅ Quarto deletado no Supabase")
     } catch (error) {
-      console.error("❌ Erro ao deletar quarto:", error)
       throw error
     }
   }
 
   const checkoutRoom = async (roomId: string) => {
     try {
-      if (!isOnline) {
-        throw new Error("Sem conexão com a internet")
-      }
-
       const room = rooms.find((r) => r.id === roomId)
       if (room && room.guest) {
         // Atualizar status no histórico para "completed"
@@ -471,9 +265,7 @@ export function HotelProvider({ children }: { children: ReactNode }) {
 
       await HotelServiceCloud.updateRoom(roomId, { status: "available", guest: undefined })
       await syncData(false)
-      console.log("✅ Checkout realizado no Supabase")
     } catch (error) {
-      console.error("❌ Erro ao fazer checkout:", error)
       throw error
     }
   }
@@ -481,33 +273,20 @@ export function HotelProvider({ children }: { children: ReactNode }) {
   // Funções de reserva
   const makeReservation = async (reservation: Omit<Reservation, "id" | "createdAt">) => {
     try {
-      if (!isOnline) {
-        throw new Error("Sem conexão com a internet")
-      }
-
       const today = new Date()
       today.setHours(0, 0, 0, 0)
 
       const checkInDate = new Date(reservation.guest.checkIn)
       checkInDate.setHours(0, 0, 0, 0)
 
-      console.log("📅 Comparando datas:", {
-        today: today.toDateString(),
-        checkIn: checkInDate.toDateString(),
-        isToday: checkInDate.getTime() === today.getTime(),
-        isFuture: checkInDate.getTime() > today.getTime(),
-      })
-
       // Se o check-in é hoje ou no passado, ocupar o quarto imediatamente
       if (checkInDate.getTime() <= today.getTime()) {
-        console.log("🏨 Reserva para hoje/passado - ocupando quarto imediatamente")
         await HotelServiceCloud.updateRoom(reservation.roomId, {
           status: "occupied",
           guest: reservation.guest,
         })
       } else {
         // Se é para o futuro, adicionar às reservas futuras
-        console.log("📅 Reserva futura - adicionando à lista de reservas futuras")
         await HotelServiceCloud.createReservation(reservation.roomId, reservation.guest)
       }
 
@@ -531,19 +310,13 @@ export function HotelProvider({ children }: { children: ReactNode }) {
       }
 
       await syncData(false)
-      console.log("✅ Reserva criada no Supabase")
     } catch (error) {
-      console.error("❌ Erro ao fazer reserva:", error)
       throw error
     }
   }
 
   const cancelFutureReservation = async (reservationId: string) => {
     try {
-      if (!isOnline) {
-        throw new Error("Sem conexão com a internet")
-      }
-
       const reservation = futureReservations.find((r) => r.id === reservationId)
       if (reservation) {
         // Atualizar status no histórico para "cancelled"
@@ -561,9 +334,7 @@ export function HotelProvider({ children }: { children: ReactNode }) {
 
       await HotelServiceCloud.cancelReservation(reservationId)
       await syncData(false)
-      console.log("✅ Reserva cancelada no Supabase")
     } catch (error) {
-      console.error("❌ Erro ao cancelar reserva:", error)
       throw error
     }
   }
@@ -571,10 +342,6 @@ export function HotelProvider({ children }: { children: ReactNode }) {
   // Função de despesas
   const addExpenseToRoom = async (roomId: string, expense: Expense) => {
     try {
-      if (!isOnline) {
-        throw new Error("Sem conexão com a internet")
-      }
-
       const room = rooms.find((r) => r.id === roomId)
       if (room && room.guest) {
         const updatedGuest = {
@@ -584,10 +351,8 @@ export function HotelProvider({ children }: { children: ReactNode }) {
 
         await HotelServiceCloud.updateRoom(roomId, { guest: updatedGuest })
         await syncData(false)
-        console.log("✅ Despesa adicionada no Supabase")
       }
     } catch (error) {
-      console.error("❌ Erro ao adicionar despesa:", error)
       throw error
     }
   }
@@ -656,15 +421,9 @@ export function HotelProvider({ children }: { children: ReactNode }) {
 
   const deleteGuestHistory = async (historyId: string) => {
     try {
-      if (!isOnline) {
-        throw new Error("Sem conexão com a internet")
-      }
-
       await HotelServiceCloud.deleteGuestHistory(historyId)
       await syncData(false)
-      console.log("✅ Histórico deletado no Supabase")
     } catch (error) {
-      console.error("❌ Erro ao deletar histórico:", error)
       throw error
     }
   }

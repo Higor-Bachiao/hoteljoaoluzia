@@ -25,7 +25,6 @@ import {
   RotateCcw,
 } from "lucide-react"
 import RoomGrid from "@/components/rooms/room-grid"
-import RoomFilters from "@/components/rooms/room-filters"
 import StatisticsPanel from "@/components/dashboard/statistics-panel"
 import FutureReservationsList from "@/components/reservations/future-reservations-list"
 import AdminPanel from "@/components/admin/admin-panel"
@@ -138,7 +137,7 @@ export default function HotelDashboard() {
 
               <div className="flex items-center space-x-2">
                 <CheckCircle className="w-4 h-4 text-blue-600" />
-                <span className="text-blue-600 hidden sm:inline">Supabase</span>
+                <span className="text-blue-600 hidden sm:inline">Sistema</span>
               </div>
 
               <div className="flex items-center space-x-1">
@@ -294,26 +293,8 @@ export default function HotelDashboard() {
           <TabsContent value="rooms" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base sm:text-lg">Filtros</CardTitle>
-                <CardDescription className="text-sm">Filtre os quartos por tipo, status e preço</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <RoomFilters />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0">
-                  <span className="text-base sm:text-lg">Quartos ({filteredRooms.length})</span>
-                  <Badge variant="outline" className="text-xs">
-                    Sincronização em nuvem ativa
-                  </Badge>
-                </CardTitle>
-                <CardDescription className="text-sm">
-                  Visualize e gerencie todos os quartos do hotel. Os dados são sincronizados automaticamente via
-                  Supabase.
-                </CardDescription>
+                <CardTitle className="text-base sm:text-lg">Quartos ({filteredRooms.length})</CardTitle>
+                <CardDescription className="text-sm">Visualize e gerencie todos os quartos do hotel</CardDescription>
               </CardHeader>
               <CardContent>
                 <RoomGrid />
