@@ -8,7 +8,6 @@ interface AuthContextType {
   user: User | null
   login: (email: string, password: string) => Promise<void>
   logout: () => void
-  register: (userData: Omit<User, "id">) => Promise<void>
   isLoading: boolean
   error: string | null
 }
@@ -20,7 +19,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Verificar se há usuário logado no localStorage
   useEffect(() => {
     const savedUser = localStorage.getItem("hotel_current_user")
     if (savedUser) {
@@ -39,9 +37,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(true)
       setError(null)
 
-      const userData = await HotelServiceCloud.authenticateUser(email, password)
-      setUser(userData)
-      localStorage.setItem("hotel_current_user", JSON.stringify(userData))
+      const authenticatedUser = await HotelServiceCloud.authenticateUser(email, password)
+      setUser(authenticatedUser)
+      localStorage.setItem("hotel_current_user", JSON.stringify(authenticatedUser))
     } catch (error: any) {
       setError(error.message)
       throw error
@@ -55,30 +53,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("hotel_current_user")
   }
 
-  const register = async (userData: Omit<User, "id">) => {
-    try {
-      setIsLoading(true)
-      setError(null)
-
-      const userId = await HotelServiceCloud.createUser(userData)
-      const newUser = { ...userData, id: userId }
-      setUser(newUser)
-      localStorage.setItem("hotel_current_user", JSON.stringify(newUser))
-    } catch (error: any) {
-      setError(error.message)
-      throw error
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   return (
     <AuthContext.Provider
       value={{
         user,
         login,
         logout,
-        register,
         isLoading,
         error,
       }}

@@ -5,7 +5,6 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
 
-// Tipos para o banco de dados
 export interface DatabaseRoom {
   id: string
   number: string
