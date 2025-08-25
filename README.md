@@ -1,11 +1,12 @@
-# Sistema de Gerenciamento Hoteleiro
+# 🏨 Sistema de Gerenciamento Hoteleiro
 
-Um sistema completo de gerenciamento hoteleiro desenvolvido com Next.js 15, React e Tailwind CSS.
+Um sistema completo de gerenciamento hoteleiro desenvolvido com Next.js 15, React, Tailwind CSS e **Supabase** para sincronização em nuvem.
 
 ## 🚀 Funcionalidades
 
 ### ✅ Implementadas
-- **Autenticação JWT** - Login e registro de usuários
+- **Autenticação com Supabase** - Login e registro de usuários
+- **Sincronização em Nuvem** - Dados sincronizados em tempo real entre dispositivos
 - **Dashboard Responsivo** - Interface adaptável para desktop, tablet e mobile
 - **Gerenciamento de Quartos** - Visualização, adição, edição e exclusão
 - **Sistema de Reservas** - Reserva online com confirmação
@@ -13,15 +14,8 @@ Um sistema completo de gerenciamento hoteleiro desenvolvido com Next.js 15, Reac
 - **Estatísticas** - Gráficos de ocupação e métricas do hotel
 - **Painel Administrativo** - CRUD completo para administradores
 - **Status de Quartos** - Disponível, ocupado, manutenção, reservado
-
-### 🔄 Em Desenvolvimento
-- **Integração com Backend** - API REST com Node.js e Express
-- **Banco de Dados** - MySQL com Sequelize ORM
-- **Envio de E-mails** - Confirmação automática de reservas
-- **Integração WhatsApp** - Chatbot para atendimento
-- **Google Maps** - Localização do hotel
-- **PWA** - Progressive Web App
-- **Testes Unitários** - Jest e Testing Library
+- **Histórico de Hóspedes** - Registro completo de todas as estadias
+- **Real-time Updates** - Mudanças aparecem instantaneamente em todos os dispositivos
 
 ## 🛠️ Tecnologias Utilizadas
 
@@ -34,13 +28,19 @@ Um sistema completo de gerenciamento hoteleiro desenvolvido com Next.js 15, Reac
 - **Recharts** - Gráficos e visualizações
 - **Lucide React** - Ícones modernos
 
-### Backend (Planejado)
-- **Node.js** - Runtime JavaScript
-- **Express** - Framework web
-- **Sequelize** - ORM para MySQL
-- **JWT** - Autenticação
-- **bcrypt** - Hash de senhas
-- **Helmet** - Segurança HTTP
+### Backend/Nuvem
+- **Supabase** - Backend as a Service
+- **PostgreSQL** - Banco de dados relacional
+- **Real-time Subscriptions** - Atualizações em tempo real
+- **Row Level Security** - Segurança de dados
+
+## 🌐 Deploy e Hospedagem
+
+### Netlify + Supabase
+- **Frontend**: Hospedado no Netlify (gratuito)
+- **Backend**: Supabase (gratuito até 50k requisições/mês)
+- **Sincronização**: Real-time entre todos os dispositivos
+- **Backup**: Automático na nuvem
 
 ## 📁 Estrutura do Projeto
 
@@ -59,8 +59,13 @@ hotel-management-system/
 │   ├── rooms/            # Gerenciamento de quartos
 │   └── ui/               # Componentes de interface
 ├── contexts/             # Context API
-│   ├── auth-context.tsx  # Contexto de autenticação
-│   └── hotel-context.tsx # Contexto do hotel
+│   ├── auth-context-cloud.tsx  # Contexto de autenticação
+│   └── hotel-context-cloud.tsx # Contexto do hotel
+├── lib/                  # Utilitários e serviços
+│   ├── supabase.ts       # Configuração Supabase
+│   └── hotel-service-cloud.ts # Serviços de dados
+├── scripts/              # Scripts SQL
+│   └── supabase_schema.sql # Schema do banco
 ├── types/                # Definições TypeScript
 │   └── hotel.ts          # Tipos do sistema
 └── README.md             # Documentação
@@ -71,6 +76,7 @@ hotel-management-system/
 ### Pré-requisitos
 - Node.js 18+ 
 - npm ou yarn
+- Conta Supabase (gratuita)
 
 ### Instalação
 
@@ -87,14 +93,26 @@ npm install
 yarn install
 \`\`\`
 
-3. **Execute o projeto**
+3. **Configure o Supabase**
+- Crie uma conta em [supabase.com](https://supabase.com)
+- Crie um novo projeto
+- Execute o script `scripts/supabase_schema.sql` no SQL Editor
+- Copie as credenciais (URL e anon key)
+
+4. **Configure as variáveis de ambiente**
+\`\`\`bash
+cp .env.local.example .env.local
+# Edite .env.local com suas credenciais do Supabase
+\`\`\`
+
+5. **Execute o projeto**
 \`\`\`bash
 npm run dev
 # ou
 yarn dev
 \`\`\`
 
-4. **Acesse o sistema**
+6. **Acesse o sistema**
 \`\`\`
 http://localhost:3000
 \`\`\`
@@ -102,28 +120,43 @@ http://localhost:3000
 ### Credenciais de Teste
 - **Administrador**: admin@hotel.com / admin123
 - **Funcionário**: staff@hotel.com / staff123
+- **Hóspede**: guest@hotel.com / guest123
 
-## 📱 Responsividade
+## 🌐 Deploy no Netlify
 
-O sistema foi desenvolvido com design responsivo, funcionando perfeitamente em:
-- **Desktop** (1200px+)
-- **Tablet** (768px - 1199px)
-- **Mobile** (320px - 767px)
+1. **Faça push para GitHub**
+\`\`\`bash
+git add .
+git commit -m "Sistema hotel com Supabase"
+git push origin main
+\`\`\`
 
-## 🔐 Segurança
+2. **Configure no Netlify**
+- Conecte seu repositório GitHub
+- Adicione as variáveis de ambiente:
+  - `NEXT_PUBLIC_SUPABASE_URL`
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- Deploy automático!
 
-### Implementadas
-- Autenticação JWT
-- Validação de formulários
-- Sanitização de dados
-- Controle de acesso por roles
+## 📱 Funcionalidades da Sincronização
 
-### Planejadas
-- HTTPS obrigatório
-- Rate limiting
-- Validação de entrada
-- Proteção CSRF
-- Headers de segurança
+### 🔄 Real-time Sync
+- **Automática**: Sincronização a cada 10 segundos
+- **Manual**: Botão de sync manual
+- **Focus**: Sincroniza quando a aba volta ao foco
+- **Real-time**: Mudanças aparecem instantaneamente
+
+### 🌐 Multi-dispositivo
+- **Celular**: Interface responsiva
+- **Tablet**: Layout otimizado
+- **Desktop**: Experiência completa
+- **Offline**: Funciona offline com sync posterior
+
+### 💾 Backup e Segurança
+- **Automático**: Backup contínuo na nuvem
+- **Seguro**: Row Level Security no Supabase
+- **Escalável**: Suporta múltiplos hotéis
+- **Confiável**: 99.9% de uptime
 
 ## 📊 Funcionalidades Principais
 
@@ -133,24 +166,50 @@ O sistema foi desenvolvido com design responsivo, funcionando perfeitamente em:
 - Busca por número ou hóspede
 - Status colorido (verde=disponível, vermelho=ocupado)
 - Detalhes completos do quarto
+- Sincronização em tempo real
 
 ### Sistema de Reservas
 - Formulário intuitivo
 - Seleção de quartos disponíveis
 - Validação de datas
 - Confirmação automática
+- Reservas futuras
 
 ### Dashboard Administrativo
 - Estatísticas em tempo real
 - Gráficos de ocupação
 - Métricas de receita
 - Controle de usuários
+- Histórico completo
 
 ### Painel de Estatísticas
 - Taxa de ocupação
 - Receita mensal
 - Distribuição por tipo de quarto
 - Hóspedes ativos
+- Gráficos interativos
+
+## 🔧 Configuração Avançada
+
+### Supabase Schema
+O arquivo `scripts/supabase_schema.sql` contém:
+- Tabelas de usuários, quartos, reservas e histórico
+- Políticas de segurança (RLS)
+- Triggers para updated_at
+- Dados iniciais de teste
+
+### Real-time Subscriptions
+\`\`\`typescript
+// Exemplo de subscription
+supabase
+  .channel('rooms-changes')
+  .on('postgres_changes', { 
+    event: '*', 
+    schema: 'public', 
+    table: 'rooms' 
+  }, callback)
+  .subscribe()
+\`\`\`
 
 ## 🧪 Testes
 
@@ -158,31 +217,11 @@ O sistema foi desenvolvido com design responsivo, funcionando perfeitamente em:
 # Executar testes
 npm run test
 
-# Executar testes em modo watch
-npm run test:watch
-
 # Verificação de tipos
 npm run type-check
-\`\`\`
 
-## 📦 Deploy
-
-### Vercel (Recomendado)
-\`\`\`bash
-# Instalar Vercel CLI
-npm i -g vercel
-
-# Deploy
-vercel
-\`\`\`
-
-### Docker
-\`\`\`bash
-# Build da imagem
-docker build -t hotel-management .
-
-# Executar container
-docker run -p 3000:3000 hotel-management
+# Build de produção
+npm run build
 \`\`\`
 
 ## 🤝 Contribuição
@@ -201,7 +240,6 @@ Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para de
 
 Para suporte e dúvidas:
 - Email: suporte@hotelmanagement.com
-- WhatsApp: (11) 99999-9999
 - GitHub Issues: [Criar Issue](https://github.com/seu-usuario/hotel-management-system/issues)
 
 ## 🗺️ Roadmap
@@ -210,16 +248,24 @@ Para suporte e dúvidas:
 - [ ] Integração com APIs de pagamento
 - [ ] Sistema de avaliações
 - [ ] Relatórios avançados
-- [ ] Integração com Google Maps
 - [ ] Notificações push
+- [ ] App mobile nativo
 
 ### Versão 3.0
-- [ ] App mobile nativo
 - [ ] IA para previsão de ocupação
 - [ ] Integração com sistemas externos
 - [ ] Multi-idiomas
 - [ ] Tema escuro
+- [ ] Analytics avançados
 
 ---
+
+## 🌟 **SISTEMA PROFISSIONAL COM NUVEM!**
+
+✅ **Sincronização Real-time** - Mudanças aparecem instantaneamente  
+✅ **Multi-dispositivo** - Funciona em celular, tablet e desktop  
+✅ **Backup Automático** - Dados seguros na nuvem  
+✅ **Escalável** - Suporta crescimento do negócio  
+✅ **Gratuito** - Netlify + Supabase gratuitos  
 
 Desenvolvido com ❤️ pela equipe Hotel Management

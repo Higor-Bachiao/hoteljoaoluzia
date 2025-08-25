@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
-import { useAuth } from "@/contexts/auth-context"
+import { useAuth } from "@/contexts/auth-context-cloud"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -191,9 +191,23 @@ export default function LoginForm() {
               </form>
             </TabsContent>
           </Tabs>
+
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+            <h4 className="font-medium text-blue-900 mb-2">Contas de Teste:</h4>
+            <div className="text-sm text-blue-800 space-y-1">
+              <p>
+                <strong>Admin:</strong> admin@hotel.com / admin123
+              </p>
+              <p>
+                <strong>Staff:</strong> staff@hotel.com / staff123
+              </p>
+              <p>
+                <strong>Guest:</strong> guest@hotel.com / guest123
+              </p>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
   )
 }
-</merged_code>

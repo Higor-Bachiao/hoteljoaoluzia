@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useHotel } from "@/contexts/hotel-context"
+import { useHotel } from "@/contexts/hotel-context-cloud"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -22,11 +22,12 @@ import {
   Car,
   Coffee,
   Tv,
-  CheckCircle,
   Calendar,
   DollarSign,
   PlusCircle,
   RefreshCw,
+  Eye,
+  LogOut,
 } from "lucide-react"
 import type { Room } from "@/types/hotel"
 import { calculateTotalStayPrice, getNumberOfNights } from "@/lib/price-utils"
@@ -50,7 +51,7 @@ export default function RoomCard({ room }: RoomCardProps) {
   const getStatusDisplay = () => {
     if (room.status === "available" && hasFutureReservation) {
       return {
-        statusText: "Disponível (Reservado Futuro)",
+        statusText: "Disponível (Reservado)",
         statusColor: "bg-green-100 text-green-800 border-green-200",
       }
     }
@@ -119,29 +120,29 @@ export default function RoomCard({ room }: RoomCardProps) {
 
   return (
     <>
-      <Card className="hover:shadow-lg transition-shadow cursor-pointer relative">
+      <Card className="hover:shadow-lg transition-shadow relative h-full flex flex-col">
         {/* Botão de Refresh no canto superior direito */}
         <Button
           variant="ghost"
           size="sm"
-          className="absolute top-2 right-2 h-8 w-8 p-0 opacity-60 hover:opacity-100"
+          className="absolute top-2 right-2 h-8 w-8 p-0 opacity-60 hover:opacity-100 z-10"
           onClick={handleRefreshRoom}
           disabled={isRefreshing}
         >
           <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
         </Button>
 
-        <CardHeader className="pb-3 pr-12">
+        <CardHeader className="pb-3 pr-12 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Quarto {room.number}</h3>
-            <Badge className={displayedStatusColor}>{displayedStatusText}</Badge>
+            <h3 className="text-base sm:text-lg font-semibold">Quarto {room.number}</h3>
+            <Badge className={`${displayedStatusColor} text-xs`}>{displayedStatusText}</Badge>
           </div>
           <p className="text-sm text-gray-600">{room.type}</p>
         </CardHeader>
 
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-3 flex-grow">
           <div className="flex flex-col">
-            <span className="text-2xl font-bold text-blue-600">R$ {displayPrice.toFixed(2)}</span>
+            <span className="text-xl sm:text-2xl font-bold text-blue-600">R$ {displayPrice.toFixed(2)}</span>
             <span className="text-xs text-gray-500">
               {room.guest
                 ? `R$ ${room.price.toFixed(2)}/pessoa/noite + despesas`
@@ -166,62 +167,76 @@ export default function RoomCard({ room }: RoomCardProps) {
             {room.amenities.includes("breakfast") && <Coffee className="w-4 h-4 text-orange-500" />}
             {room.amenities.includes("tv") && <Tv className="w-4 h-4 text-purple-500" />}
             {room.amenities.includes("ar-condicionado") && (
-              <img src="/placeholder.svg?height=16&width=16" alt="Ar Condicionado" className="w-4 h-4" />
+              <div className="w-4 h-4 bg-cyan-500 rounded-sm flex items-center justify-center">
+                <span className="text-white text-xs font-bold">AC</span>
+              </div>
             )}
           </div>
 
           {room.guest && (
             <div className="bg-gray-50 p-3 rounded-lg">
-              <p className="text-sm font-medium">{room.guest.name}</p>
-              {room.guest.email && <p className="text-xs text-gray-600">{room.guest.email}</p>}
+              <p className="text-sm font-medium truncate">{room.guest.name}</p>
+              {room.guest.email && <p className="text-xs text-gray-600 truncate">{room.guest.email}</p>}
               <p className="text-xs text-gray-600">Check-in: {new Date(room.guest.checkIn).toLocaleDateString()}</p>
             </div>
           )}
         </CardContent>
 
-        <CardFooter className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowDetails(true)} className="flex-1">
-            Detalhes
+        <CardFooter className="flex flex-col gap-2 pt-4 flex-shrink-0">
+          {/* Primeira linha - Botão Detalhes sempre presente */}
+          <Button variant="outline" size="sm" onClick={() => setShowDetails(true)} className="w-full">
+            <Eye className="w-4 h-4 mr-2" />
+            Ver Detalhes
           </Button>
 
-          {canReserve && (
-            <Dialog open={showReservationDialog} onOpenChange={setShowReservationDialog}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="flex-1">
-                  <Calendar className="w-4 h-4 mr-1" />
-                  Reservar
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto flex flex-col">
-                <DialogHeader>
-                  <DialogTitle>Reservar Quarto {room.number}</DialogTitle>
-                  <DialogDescription>Preencha os dados para confirmar a reserva.</DialogDescription>
-                </DialogHeader>
-                <ReservationForm initialRoomId={room.id} onReservationSuccess={() => setShowReservationDialog(false)} />
-              </DialogContent>
-            </Dialog>
-          )}
+          {/* Segunda linha - Ações específicas */}
+          <div className="flex gap-2 w-full">
+            {canReserve && (
+              <Dialog open={showReservationDialog} onOpenChange={setShowReservationDialog}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="flex-1">
+                    <Calendar className="w-4 h-4 mr-1" />
+                    <span className="hidden sm:inline">Reservar</span>
+                    <span className="sm:hidden">Reserva</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto flex flex-col mx-2">
+                  <DialogHeader>
+                    <DialogTitle className="text-base sm:text-lg">Reservar Quarto {room.number}</DialogTitle>
+                    <DialogDescription className="text-sm">
+                      Preencha os dados para confirmar a reserva.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <ReservationForm
+                    initialRoomId={room.id}
+                    onReservationSuccess={() => setShowReservationDialog(false)}
+                  />
+                </DialogContent>
+              </Dialog>
+            )}
 
-          {canCheckout && (
-            <Button size="sm" onClick={handleLiberarQuarto} variant="destructive" className="flex-1">
-              <CheckCircle className="w-4 h-4 mr-1" />
-              Liberar Quarto
-            </Button>
-          )}
+            {canCheckout && (
+              <Button size="sm" onClick={handleLiberarQuarto} variant="destructive" className="flex-1">
+                <LogOut className="w-4 h-4 mr-1" />
+                <span className="hidden sm:inline">Liberar</span>
+                <span className="sm:hidden">Check-out</span>
+              </Button>
+            )}
+          </div>
         </CardFooter>
       </Card>
 
       <Dialog open={showDetails} onOpenChange={setShowDetails}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto flex flex-col">
+        <DialogContent className="max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto flex flex-col mx-2">
           <DialogHeader>
-            <DialogTitle>Quarto {room.number} - Detalhes</DialogTitle>
-            <DialogDescription>Informações completas do quarto</DialogDescription>
+            <DialogTitle className="text-base sm:text-lg">Quarto {room.number} - Detalhes</DialogTitle>
+            <DialogDescription className="text-sm">Informações completas do quarto</DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-1">
             <div className="space-y-4">
               <div>
-                <h4 className="font-medium mb-2">Informações Básicas</h4>
+                <h4 className="font-medium mb-2 text-sm sm:text-base">Informações Básicas</h4>
                 <div className="space-y-1 text-sm">
                   <p>
                     <strong>Tipo:</strong> {room.type}
@@ -239,10 +254,10 @@ export default function RoomCard({ room }: RoomCardProps) {
               </div>
 
               <div>
-                <h4 className="font-medium mb-2">Comodidades</h4>
+                <h4 className="font-medium mb-2 text-sm sm:text-base">Comodidades</h4>
                 <div className="flex flex-wrap gap-2">
                   {room.amenities.map((amenity) => (
-                    <Badge key={amenity} variant="secondary">
+                    <Badge key={amenity} variant="secondary" className="text-xs">
                       {amenity}
                     </Badge>
                   ))}
@@ -252,13 +267,13 @@ export default function RoomCard({ room }: RoomCardProps) {
               {room.guest && (
                 <>
                   <div>
-                    <h4 className="font-medium mb-2">Hóspede Atual</h4>
+                    <h4 className="font-medium mb-2 text-sm sm:text-base">Hóspede Atual</h4>
                     <div className="space-y-1 text-sm">
                       <p>
                         <strong>Nome:</strong> {room.guest.name}
                       </p>
                       {room.guest.email && (
-                        <p>
+                        <p className="break-all">
                           <strong>Email:</strong> {room.guest.email}
                         </p>
                       )}
@@ -288,7 +303,7 @@ export default function RoomCard({ room }: RoomCardProps) {
                   </div>
 
                   <div>
-                    <h4 className="font-medium mb-2 flex items-center gap-2">
+                    <h4 className="font-medium mb-2 flex items-center gap-2 text-sm sm:text-base">
                       <DollarSign className="w-4 h-4" />
                       Despesas Adicionais
                     </h4>
@@ -296,8 +311,8 @@ export default function RoomCard({ room }: RoomCardProps) {
                       <ul className="space-y-1 text-sm">
                         {room.guest.expenses.map((expense, index) => (
                           <li key={index} className="flex justify-between">
-                            <span>{expense.description}</span>
-                            <span>R$ {expense.value.toFixed(2)}</span>
+                            <span className="truncate mr-2">{expense.description}</span>
+                            <span className="font-medium">R$ {expense.value.toFixed(2)}</span>
                           </li>
                         ))}
                       </ul>
@@ -305,13 +320,16 @@ export default function RoomCard({ room }: RoomCardProps) {
                       <p className="text-sm text-muted-foreground">Nenhuma despesa adicional.</p>
                     )}
 
-                    <div className="mt-4 space-y-2">
-                      <Label htmlFor="newExpenseDescription">Adicionar Nova Despesa</Label>
+                    <div className="mt-4 space-y-3">
+                      <Label htmlFor="newExpenseDescription" className="text-sm">
+                        Adicionar Nova Despesa
+                      </Label>
                       <Input
                         id="newExpenseDescription"
                         placeholder="Descrição (ex: Consumo do frigobar)"
                         value={newExpenseDescription}
                         onChange={(e) => setNewExpenseDescription(e.target.value)}
+                        className="text-sm"
                       />
                       <Input
                         type="number"
@@ -320,8 +338,9 @@ export default function RoomCard({ room }: RoomCardProps) {
                         onChange={(e) => setNewExpenseValue(e.target.value)}
                         min="0"
                         step="0.01"
+                        className="text-sm"
                       />
-                      <Button onClick={handleAddExpense} className="w-full">
+                      <Button onClick={handleAddExpense} className="w-full" size="sm">
                         <PlusCircle className="w-4 h-4 mr-2" />
                         Adicionar Despesa
                       </Button>
@@ -329,9 +348,9 @@ export default function RoomCard({ room }: RoomCardProps) {
                   </div>
 
                   <div className="bg-blue-50 p-3 rounded-lg mt-4">
-                    <div className="flex justify-between font-bold text-blue-900">
-                      <span>Total da Estadia (com despesas):</span>
-                      <span>
+                    <div className="flex flex-col sm:flex-row justify-between font-bold text-blue-900 gap-1">
+                      <span className="text-sm">Total da Estadia:</span>
+                      <span className="text-base">
                         R${" "}
                         {calculateTotalStayPrice(
                           room.price,

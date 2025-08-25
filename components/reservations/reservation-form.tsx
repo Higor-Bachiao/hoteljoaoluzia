@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { useHotel } from "@/contexts/hotel-context"
+import { useHotel } from "@/contexts/hotel-context-cloud"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -104,23 +104,25 @@ export default function ReservationForm({ initialRoomId, onReservationSuccess }:
   const numberOfNights = selectedRoom ? getNumberOfNights(formData.checkIn, formData.checkOut) : 0
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto px-6 pb-6">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="flex flex-col h-full max-h-[70vh] sm:max-h-none">
+      <div className="flex-1 overflow-y-auto px-1 sm:px-6 pb-6">
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+          <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="room">Quarto</Label>
+              <Label htmlFor="room" className="text-sm">
+                Quarto
+              </Label>
               <Select
                 value={formData.roomId}
                 onValueChange={(value) => handleInputChange("roomId", value)}
                 disabled={!!initialRoomId}
               >
-                <SelectTrigger>
+                <SelectTrigger className="text-sm">
                   <SelectValue placeholder="Selecione um quarto" />
                 </SelectTrigger>
                 <SelectContent>
                   {availableRooms.map((room) => (
-                    <SelectItem key={room.id} value={room.id}>
+                    <SelectItem key={room.id} value={room.id} className="text-sm">
                       Quarto {room.number} - {room.type} (R$ {room.price.toFixed(2)}/pessoa)
                     </SelectItem>
                   ))}
@@ -129,17 +131,19 @@ export default function ReservationForm({ initialRoomId, onReservationSuccess }:
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="guests">Número de Hóspedes</Label>
+              <Label htmlFor="guests" className="text-sm">
+                Número de Hóspedes
+              </Label>
               <Select
                 value={formData.guests.toString()}
                 onValueChange={(value) => handleInputChange("guests", Number.parseInt(value))}
               >
-                <SelectTrigger>
+                <SelectTrigger className="text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {[1, 2, 3, 4, 5, 6].map((num) => (
-                    <SelectItem key={num} value={num.toString()}>
+                    <SelectItem key={num} value={num.toString()} className="text-sm">
                       {num} {num === 1 ? "pessoa" : "pessoas"}
                     </SelectItem>
                   ))}
@@ -149,14 +153,14 @@ export default function ReservationForm({ initialRoomId, onReservationSuccess }:
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-lg font-medium flex items-center gap-2">
-              <User className="w-5 h-5" />
+            <h3 className="text-base sm:text-lg font-medium flex items-center gap-2">
+              <User className="w-4 h-4 sm:w-5 sm:h-5" />
               Dados do Hóspede
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="guestName">
+                <Label htmlFor="guestName" className="text-sm">
                   Nome Completo <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -165,12 +169,13 @@ export default function ReservationForm({ initialRoomId, onReservationSuccess }:
                   onChange={(e) => handleInputChange("guestName", e.target.value)}
                   placeholder="Nome do hóspede"
                   required
+                  className="text-sm"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="guestEmail">
-                  Email <span className="text-gray-400 text-sm">(opcional)</span>
+                <Label htmlFor="guestEmail" className="text-sm">
+                  Email <span className="text-gray-400 text-xs">(opcional)</span>
                 </Label>
                 <Input
                   id="guestEmail"
@@ -178,13 +183,13 @@ export default function ReservationForm({ initialRoomId, onReservationSuccess }:
                   value={formData.guestEmail}
                   onChange={(e) => handleInputChange("guestEmail", e.target.value)}
                   placeholder="email@exemplo.com"
-                  // Removido: required
+                  className="text-sm"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="guestPhone">
-                  Telefone <span className="text-gray-400 text-sm">(opcional)</span>
+                <Label htmlFor="guestPhone" className="text-sm">
+                  Telefone <span className="text-gray-400 text-xs">(opcional)</span>
                 </Label>
                 <Input
                   id="guestPhone"
@@ -192,31 +197,31 @@ export default function ReservationForm({ initialRoomId, onReservationSuccess }:
                   value={formData.guestPhone}
                   onChange={(e) => handleInputChange("guestPhone", e.target.value)}
                   placeholder="(11) 99999-9999"
-                  // Removido: required
+                  className="text-sm"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="guestCpf">
-                  CPF <span className="text-gray-400 text-sm">(opcional)</span>
+                <Label htmlFor="guestCpf" className="text-sm">
+                  CPF <span className="text-gray-400 text-xs">(opcional)</span>
                 </Label>
                 <Input
                   id="guestCpf"
                   value={formData.guestCpf}
                   onChange={(e) => handleInputChange("guestCpf", e.target.value)}
                   placeholder="000.000.000-00"
-                  // Removido: required
+                  className="text-sm"
                 />
               </div>
             </div>
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-lg font-medium">Datas da Estadia</h3>
+            <h3 className="text-base sm:text-lg font-medium">Datas da Estadia</h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="checkIn">
+                <Label htmlFor="checkIn" className="text-sm">
                   Check-in <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -226,11 +231,12 @@ export default function ReservationForm({ initialRoomId, onReservationSuccess }:
                   onChange={(e) => handleInputChange("checkIn", e.target.value)}
                   min={new Date().toLocaleDateString("en-CA")}
                   required
+                  className="text-sm"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="checkOut">
+                <Label htmlFor="checkOut" className="text-sm">
                   Check-out <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -240,38 +246,37 @@ export default function ReservationForm({ initialRoomId, onReservationSuccess }:
                   onChange={(e) => handleInputChange("checkOut", e.target.value)}
                   min={formData.checkIn || new Date().toISOString().split("T")[0]}
                   required
+                  className="text-sm"
                 />
               </div>
             </div>
           </div>
 
           {selectedRoom && formData.checkIn && formData.checkOut && (
-            <div className="col-span-2">
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h4 className="font-medium text-blue-900 mb-2">Resumo do Preço</h4>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between">
-                    <span>Quarto:</span>
-                    <span>
-                      {selectedRoom.number} ({selectedRoom.type})
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Preço por pessoa/noite:</span>
-                    <span>R$ {selectedRoom.price.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Número de pessoas:</span>
-                    <span>{formData.guests}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Número de noites:</span>
-                    <span>{numberOfNights}</span>
-                  </div>
-                  <div className="flex justify-between font-bold text-blue-900 border-t pt-1">
-                    <span>Total da Estadia:</span>
-                    <span>R$ {totalStayPrice.toFixed(2)}</span>
-                  </div>
+            <div className="bg-blue-50 p-3 sm:p-4 rounded-lg">
+              <h4 className="font-medium text-blue-900 mb-2 text-sm sm:text-base">Resumo do Preço</h4>
+              <div className="space-y-1 text-xs sm:text-sm">
+                <div className="flex justify-between">
+                  <span>Quarto:</span>
+                  <span>
+                    {selectedRoom.number} ({selectedRoom.type})
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Preço por pessoa/noite:</span>
+                  <span>R$ {selectedRoom.price.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Número de pessoas:</span>
+                  <span>{formData.guests}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Número de noites:</span>
+                  <span>{numberOfNights}</span>
+                </div>
+                <div className="flex justify-between font-bold text-blue-900 border-t pt-1 text-sm sm:text-base">
+                  <span>Total da Estadia:</span>
+                  <span>R$ {totalStayPrice.toFixed(2)}</span>
                 </div>
               </div>
             </div>
@@ -281,6 +286,7 @@ export default function ReservationForm({ initialRoomId, onReservationSuccess }:
             type="submit"
             className="w-full"
             disabled={isSubmitting || !selectedRoom || !formData.checkIn || !formData.checkOut || !formData.guestName}
+            size="sm"
           >
             {isSubmitting ? "Processando..." : "Confirmar Reserva"}
           </Button>

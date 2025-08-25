@@ -1,7 +1,7 @@
 import { Suspense } from "react"
 import HotelDashboard from "@/components/hotel-dashboard"
-import { AuthProvider } from "@/contexts/auth-context"
-import { HotelProvider } from "@/contexts/hotel-context"
+import { AuthProvider } from "@/contexts/auth-context-cloud"
+import { HotelProvider } from "@/contexts/hotel-context-cloud"
 import LoadingWrapper from "@/components/loading-wrapper"
 
 export default function Home() {
