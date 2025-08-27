@@ -8,13 +8,14 @@ export interface Room {
   amenities: string[]
   status: "available" | "occupied" | "maintenance" | "reserved"
   guest?: Guest
+  updatedAt?: string
 }
 
 export interface Guest {
   name: string
-  email?: string
-  phone?: string
-  cpf?: string
+  email: string
+  phone: string
+  document: string
   guests: number
   checkIn: string
   checkOut: string
@@ -22,14 +23,17 @@ export interface Guest {
 }
 
 export interface Expense {
+  id: string
   description: string
   value: number
+  date: string
 }
 
 export interface Reservation {
   id: string
   roomId: string
   guest: Guest
+  status: "active" | "completed" | "cancelled"
   createdAt: string
 }
 
@@ -57,5 +61,17 @@ export interface User {
   name: string
   email: string
   role: "admin" | "staff" | "guest"
-  phone?: string
+  phone: string
+}
+
+export interface GuestHistory {
+  id: string
+  guest: Guest
+  roomNumber: string
+  roomType: string
+  checkInDate: string
+  checkOutDate: string
+  totalPrice: number
+  status: "active" | "completed" | "cancelled"
+  createdAt: string
 }

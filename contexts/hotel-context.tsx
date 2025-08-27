@@ -1,21 +1,9 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from "react"
-import type { Room, Reservation, HotelFilters, HotelStatistics, Expense, Guest } from "@/types/hotel"
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import type { Room, Reservation, HotelFilters, HotelStatistics, Expense, GuestHistory } from "@/types/hotel"
 import { getNumberOfNights } from "@/lib/price-utils"
-
-// Nova interface para histórico de hóspedes
-interface GuestHistory {
-  id: string
-  guest: Guest
-  roomNumber: string
-  roomType: string
-  checkInDate: string
-  checkOutDate: string
-  totalPrice: number
-  status: "active" | "completed" | "cancelled"
-  createdAt: string
-}
+import { hotelApi } from "@/lib/hotel-api"
 
 interface HotelContextType {
   rooms: Room[]
@@ -24,23 +12,26 @@ interface HotelContextType {
   setFilters: (filters: HotelFilters) => void
   clearFilters: () => void
   searchRooms: (term: string) => void
-  addRoom: (room: Omit<Room, "id" | "status" | "guest">) => void
-  updateRoom: (roomId: string, updates: Partial<Room>) => void
-  deleteRoom: (roomId: string) => void
-  checkoutRoom: (roomId: string) => void
+  addRoom: (room: Omit<Room, "id" | "status" | "guest">) => Promise<void>
+  updateRoom: (roomId: string, updates: Partial<Room>) => Promise<void>
+  deleteRoom: (roomId: string) => Promise<void>
+  checkoutRoom: (roomId: string) => Promise<void>
   makeReservation: (reservation: Omit<Reservation, "id" | "createdAt">) => Promise<void>
-  addExpenseToRoom: (roomId: string, expense: Expense) => void
+  addExpenseToRoom: (roomId: string, expense: Expense) => Promise<void>
   getStatistics: () => HotelStatistics
   getFutureReservations: () => Room[]
   futureReservations: Reservation[]
-  cancelFutureReservation: (reservationId: string) => void
+  cancelFutureReservation: (reservationId: string) => Promise<void>
   guestHistory: GuestHistory[]
   getGuestHistory: () => GuestHistory[]
-  deleteGuestHistory: (historyId: string) => void
+  deleteGuestHistory: (historyId: string) => Promise<void>
   isLoading: boolean
   error: string | null
   lastSync: Date | null
   isOnline: boolean
+  syncData: () => Promise<void>
+  resetData: () => Promise<void>
+  forceRefresh: () => Promise<void>
 }
 
 const HotelContext = createContext<HotelContextType | undefined>(undefined)
@@ -54,8 +45,6 @@ export function HotelProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const [lastSync, setLastSync] = useState<Date | null>(null)
   const [isOnline, setIsOnline] = useState(true)
-  const syncIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  const lastSyncRef = useRef<string>("")
 
   const [filters, setFilters] = useState<HotelFilters>({
     type: "",
@@ -64,11 +53,20 @@ export function HotelProvider({ children }: { children: ReactNode }) {
     maxPrice: 1000,
   })
 
-  // 🌐 Monitorar status de conexão
+  // Monitorar status de conexão
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true)
-    const handleOffline = () => setIsOnline(false)
+    const handleOnline = () => {
+      console.log("🌐 Conexão restaurada")
+      setIsOnline(true)
+      syncData()
+    }
 
+    const handleOffline = () => {
+      console.log("🌐 Conexão perdida")
+      setIsOnline(false)
+    }
+
+    setIsOnline(navigator.onLine)
     window.addEventListener("online", handleOnline)
     window.addEventListener("offline", handleOffline)
 
@@ -78,140 +76,93 @@ export function HotelProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // 🔄 Função para sincronizar dados automaticamente
+  // Função para sincronizar dados com o backend
   const syncData = async (silent = true) => {
-    if (!isOnline) return
+    if (!isOnline) {
+      if (!silent) console.log("📴 Offline - não é possível sincronizar")
+      return
+    }
 
     try {
       if (!silent) {
-        console.log("🔄 Sincronizando dados...")
+        console.log("🔄 Sincronizando dados com o backend...")
+        setError(null)
       }
 
-      // Buscar dados atualizados do localStorage de outros dispositivos/abas
-      const storedRooms = localStorage.getItem("hotel_rooms")
-      const storedReservations = localStorage.getItem("hotel_future_reservations")
-      const storedHistory = localStorage.getItem("hotel_guest_history")
-      const storedLastUpdate = localStorage.getItem("hotel_last_update")
+      // Buscar dados do backend
+      const [roomsData, reservationsData, historyData] = await Promise.allSettled([
+        hotelApi.getAllRooms(),
+        hotelApi.getFutureReservations(),
+        hotelApi.getGuestHistory(),
+      ])
 
-      // Verificar se houve mudanças desde a última sincronização
-      if (storedLastUpdate && storedLastUpdate !== lastSyncRef.current) {
-        if (storedRooms) {
-          const parsedRooms = JSON.parse(storedRooms)
-          setRooms(parsedRooms)
-        }
-
-        if (storedReservations) {
-          const parsedReservations = JSON.parse(storedReservations)
-          setFutureReservations(parsedReservations)
-        }
-
-        if (storedHistory) {
-          const parsedHistory = JSON.parse(storedHistory)
-          setGuestHistory(parsedHistory)
-        }
-
-        lastSyncRef.current = storedLastUpdate
-        setLastSync(new Date())
-
-        if (!silent) {
-          console.log("✅ Dados sincronizados com sucesso")
-        }
+      // Processar quartos
+      if (roomsData.status === "fulfilled" && Array.isArray(roomsData.value)) {
+        setRooms(roomsData.value)
       }
 
+      // Processar reservações
+      if (reservationsData.status === "fulfilled" && Array.isArray(reservationsData.value)) {
+        setFutureReservations(reservationsData.value)
+      }
+
+      // Processar histórico
+      if (historyData.status === "fulfilled" && Array.isArray(historyData.value)) {
+        setGuestHistory(historyData.value)
+      }
+
+      setLastSync(new Date())
       setError(null)
+
+      if (!silent) {
+        console.log(
+          `✅ Sincronização concluída: ${roomsData.status === "fulfilled" ? roomsData.value.length : 0} quartos`,
+        )
+      }
     } catch (error: any) {
       console.error("❌ Erro na sincronização:", error)
       setError(`Erro de sincronização: ${error.message}`)
     }
   }
 
-  // 💾 Função para salvar dados e notificar outras abas
-  const saveToStorage = (key: string, data: any) => {
-    localStorage.setItem(key, JSON.stringify(data))
-    const timestamp = Date.now().toString()
-    localStorage.setItem("hotel_last_update", timestamp)
-    lastSyncRef.current = timestamp
+  // Função para reset completo dos dados
+  const resetData = async () => {
+    try {
+      console.log("🔄 Resetando dados...")
+      setIsLoading(true)
 
-    // Disparar evento para outras abas
-    window.dispatchEvent(
-      new StorageEvent("storage", {
-        key: "hotel_last_update",
-        newValue: timestamp,
-        oldValue: lastSyncRef.current,
-      }),
-    )
+      // Limpar localStorage
+      hotelApi.logout()
+
+      // Recarregar dados do backend
+      await syncData(false)
+
+      console.log("✅ Dados resetados com sucesso")
+    } catch (error: any) {
+      console.error("❌ Erro ao resetar dados:", error)
+      setError(`Erro ao resetar: ${error.message}`)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  // 🔄 Carregar dados iniciais
+  // Função para forçar refresh
+  const forceRefresh = async () => {
+    console.log("🔄 Forçando refresh completo...")
+    setIsLoading(true)
+    await syncData(false)
+    setIsLoading(false)
+  }
+
+  // Carregar dados iniciais
   useEffect(() => {
-    const loadInitialData = () => {
+    const loadInitialData = async () => {
       try {
         setIsLoading(true)
+        console.log("🚀 Carregando dados iniciais...")
 
-        // Carregar quartos
-        const storedRooms = localStorage.getItem("hotel_rooms")
-        if (storedRooms) {
-          const parsedRooms = JSON.parse(storedRooms)
-          setRooms(parsedRooms)
-        } else {
-          // Dados iniciais se não existir nada
-          const initialRooms: Room[] = [
-            {
-              id: "1",
-              number: "101",
-              type: "Solteiro",
-              capacity: 1,
-              beds: 1,
-              price: 80,
-              amenities: ["wifi", "tv"],
-              status: "available",
-            },
-            {
-              id: "2",
-              number: "102",
-              type: "Casal",
-              capacity: 2,
-              beds: 1,
-              price: 120,
-              amenities: ["wifi", "tv", "ar-condicionado"],
-              status: "available",
-            },
-            {
-              id: "3",
-              number: "103",
-              type: "Triplo",
-              capacity: 3,
-              beds: 2,
-              price: 150,
-              amenities: ["wifi", "tv", "minibar"],
-              status: "available",
-            },
-          ]
-          setRooms(initialRooms)
-          saveToStorage("hotel_rooms", initialRooms)
-        }
+        await syncData(false)
 
-        // Carregar reservas futuras
-        const storedReservations = localStorage.getItem("hotel_future_reservations")
-        if (storedReservations) {
-          const parsedReservations = JSON.parse(storedReservations)
-          setFutureReservations(parsedReservations)
-        }
-
-        // Carregar histórico
-        const storedHistory = localStorage.getItem("hotel_guest_history")
-        if (storedHistory) {
-          const parsedHistory = JSON.parse(storedHistory)
-          setGuestHistory(parsedHistory)
-        }
-
-        // Definir timestamp inicial
-        const storedLastUpdate = localStorage.getItem("hotel_last_update")
-        if (storedLastUpdate) {
-          lastSyncRef.current = storedLastUpdate
-        }
-
-        setLastSync(new Date())
         console.log("✅ Dados iniciais carregados")
       } catch (error: any) {
         console.error("❌ Erro ao carregar dados:", error)
@@ -224,76 +175,7 @@ export function HotelProvider({ children }: { children: ReactNode }) {
     loadInitialData()
   }, [])
 
-  // 🔄 Configurar sincronização automática a cada 5 segundos
-  useEffect(() => {
-    if (!isLoading && isOnline) {
-      console.log("⏰ Iniciando sincronização automática (5s)")
-
-      syncIntervalRef.current = setInterval(() => {
-        syncData(true) // silent = true
-      }, 5000) // 5 segundos
-
-      return () => {
-        if (syncIntervalRef.current) {
-          clearInterval(syncIntervalRef.current)
-          console.log("⏹️ Sincronização automática parada")
-        }
-      }
-    }
-  }, [isLoading, isOnline])
-
-  // 🔄 Sincronizar quando a aba volta ao foco
-  useEffect(() => {
-    const handleFocus = () => {
-      console.log("👁️ Aba voltou ao foco - sincronizando...")
-      syncData(false)
-    }
-
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        console.log("👁️ Página ficou visível - sincronizando...")
-        syncData(false)
-      }
-    }
-
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "hotel_last_update" && e.newValue !== lastSyncRef.current) {
-        console.log("🔄 Detectada mudança em outra aba - sincronizando...")
-        syncData(false)
-      }
-    }
-
-    window.addEventListener("focus", handleFocus)
-    document.addEventListener("visibilitychange", handleVisibilityChange)
-    window.addEventListener("storage", handleStorageChange)
-
-    return () => {
-      window.removeEventListener("focus", handleFocus)
-      document.removeEventListener("visibilitychange", handleVisibilityChange)
-      window.removeEventListener("storage", handleStorageChange)
-    }
-  }, [])
-
-  // 💾 Salvar dados quando mudarem
-  useEffect(() => {
-    if (!isLoading) {
-      saveToStorage("hotel_rooms", rooms)
-    }
-  }, [rooms, isLoading])
-
-  useEffect(() => {
-    if (!isLoading) {
-      saveToStorage("hotel_future_reservations", futureReservations)
-    }
-  }, [futureReservations, isLoading])
-
-  useEffect(() => {
-    if (!isLoading) {
-      saveToStorage("hotel_guest_history", guestHistory)
-    }
-  }, [guestHistory, isLoading])
-
-  // 📊 Aplicar filtros
+  // Aplicar filtros
   useEffect(() => {
     let filtered = rooms
 
@@ -322,31 +204,7 @@ export function HotelProvider({ children }: { children: ReactNode }) {
     setFilteredRooms(filtered)
   }, [rooms, filters])
 
-  // 📝 Função para adicionar ao histórico
-  const addToGuestHistory = (guest: Guest, roomId: string, status: "active" | "completed" | "cancelled" = "active") => {
-    const room = rooms.find((r) => r.id === roomId)
-    if (!room) return
-
-    const nights = getNumberOfNights(guest.checkIn, guest.checkOut)
-    const totalPrice =
-      room.price * guest.guests * nights + (guest.expenses?.reduce((sum, exp) => sum + exp.value, 0) || 0)
-
-    const historyEntry: GuestHistory = {
-      id: Date.now().toString(),
-      guest,
-      roomNumber: room.number,
-      roomType: room.type,
-      checkInDate: guest.checkIn,
-      checkOutDate: guest.checkOut,
-      totalPrice,
-      status,
-      createdAt: new Date().toISOString(),
-    }
-
-    setGuestHistory((prev) => [historyEntry, ...prev])
-  }
-
-  // 🔍 Funções de busca e filtro
+  // Funções de busca e filtro
   const clearFilters = () => {
     setFilters({
       type: "",
@@ -372,147 +230,196 @@ export function HotelProvider({ children }: { children: ReactNode }) {
     setFilteredRooms(filtered)
   }
 
-  // 🏨 Funções de gerenciamento de quartos
-  const addRoom = (room: Omit<Room, "id" | "status" | "guest">) => {
-    const newRoom: Room = {
-      ...room,
-      id: Date.now().toString(),
-      status: "available",
+  // Funções de gerenciamento de quartos
+  const addRoom = async (room: Omit<Room, "id" | "status" | "guest">) => {
+    try {
+      if (!isOnline) {
+        throw new Error("Sem conexão com a internet")
+      }
+
+      await hotelApi.createRoom(room)
+      await syncData(false)
+      console.log("✅ Quarto adicionado e sincronizado")
+    } catch (error) {
+      console.error("❌ Erro ao adicionar quarto:", error)
+      throw error
     }
-
-    setRooms((prev) => [...prev, newRoom])
-    console.log("✅ Quarto adicionado:", newRoom)
   }
 
-  const updateRoom = (roomId: string, updates: Partial<Room>) => {
-    setRooms((prev) => prev.map((room) => (room.id === roomId ? { ...room, ...updates } : room)))
-    console.log("✅ Quarto atualizado:", roomId, updates)
-  }
+  const updateRoom = async (roomId: string, updates: Partial<Room>) => {
+    try {
+      if (!isOnline) {
+        throw new Error("Sem conexão com a internet")
+      }
 
-  const deleteRoom = (roomId: string) => {
-    setRooms((prev) => prev.filter((room) => room.id !== roomId))
-    console.log("✅ Quarto deletado:", roomId)
-  }
-
-  const checkoutRoom = (roomId: string) => {
-    const room = rooms.find((r) => r.id === roomId)
-    if (room && room.guest) {
-      // Atualizar status no histórico para "completed"
-      setGuestHistory((prev) =>
-        prev.map((entry) =>
-          entry.roomNumber === room.number && entry.guest.name === room.guest?.name && entry.status === "active"
-            ? { ...entry, status: "completed" }
-            : entry,
-        ),
-      )
+      await hotelApi.updateRoom(roomId, updates)
+      await syncData(false)
+      console.log("✅ Quarto atualizado e sincronizado")
+    } catch (error) {
+      console.error("❌ Erro ao atualizar quarto:", error)
+      throw error
     }
-
-    setRooms((prev) =>
-      prev.map((room) => (room.id === roomId ? { ...room, status: "available", guest: undefined } : room)),
-    )
-    console.log("✅ Checkout realizado:", roomId)
   }
 
-  // 📅 Funções de reserva - CORRIGIDO
-  const makeReservation = async (reservation: Omit<Reservation, "id" | "createdAt">) => {
-    const newReservation: Reservation = {
-      ...reservation,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
+  const deleteRoom = async (roomId: string) => {
+    try {
+      if (!isOnline) {
+        throw new Error("Sem conexão com a internet")
+      }
+
+      await hotelApi.deleteRoom(roomId)
+      await syncData(false)
+      console.log("✅ Quarto deletado e sincronizado")
+    } catch (error) {
+      console.error("❌ Erro ao deletar quarto:", error)
+      throw error
     }
-
-    // 🔧 CORREÇÃO: Comparar datas corretamente
-    const today = new Date()
-    today.setHours(0, 0, 0, 0) // Zerar horas para comparação precisa
-
-    const checkInDate = new Date(reservation.guest.checkIn)
-    checkInDate.setHours(0, 0, 0, 0) // Zerar horas para comparação precisa
-
-    console.log("📅 Comparando datas:", {
-      today: today.toDateString(),
-      checkIn: checkInDate.toDateString(),
-      isToday: checkInDate.getTime() === today.getTime(),
-      isFuture: checkInDate.getTime() > today.getTime(),
-    })
-
-    // Se o check-in é hoje ou no passado, ocupar o quarto imediatamente
-    if (checkInDate.getTime() <= today.getTime()) {
-      console.log("🏨 Reserva para hoje/passado - ocupando quarto imediatamente")
-      setRooms((prev) =>
-        prev.map((room) =>
-          room.id === reservation.roomId ? { ...room, status: "occupied", guest: reservation.guest } : room,
-        ),
-      )
-    } else {
-      // Se é para o futuro, adicionar às reservas futuras
-      console.log("📅 Reserva futura - adicionando à lista de reservas futuras")
-      setFutureReservations((prev) => [...prev, newReservation])
-    }
-
-    // Adicionar ao histórico
-    addToGuestHistory(reservation.guest, reservation.roomId, "active")
-
-    console.log("✅ Reserva criada:", newReservation)
   }
 
-  const cancelFutureReservation = (reservationId: string) => {
-    const reservation = futureReservations.find((r) => r.id === reservationId)
-    if (reservation) {
-      // Atualizar status no histórico para "cancelled"
-      setGuestHistory((prev) =>
-        prev.map((entry) =>
-          entry.guest.name === reservation.guest.name &&
-          entry.checkInDate === reservation.guest.checkIn &&
-          entry.status === "active"
-            ? { ...entry, status: "cancelled" }
-            : entry,
-        ),
-      )
-    }
+  const checkoutRoom = async (roomId: string) => {
+    try {
+      if (!isOnline) {
+        throw new Error("Sem conexão com a internet")
+      }
 
-    setFutureReservations((prev) => prev.filter((r) => r.id !== reservationId))
-    console.log("✅ Reserva cancelada:", reservationId)
-  }
+      const room = rooms.find((r) => r.id === roomId)
+      if (room && room.guest) {
+        // Atualizar status no histórico para "completed"
+        const historyEntry = guestHistory.find(
+          (entry) =>
+            entry.roomNumber === room.number && entry.guest.name === room.guest?.name && entry.status === "active",
+        )
 
-  // 💰 Função de despesas
-  const addExpenseToRoom = (roomId: string, expense: Expense) => {
-    setRooms((prev) =>
-      prev.map((room) => {
-        if (room.id === roomId && room.guest) {
-          const updatedRoom = {
-            ...room,
-            guest: {
-              ...room.guest,
-              expenses: [...(room.guest.expenses || []), expense],
-            },
-          }
-
-          // Atualizar também no histórico
-          setGuestHistory((prevHistory) =>
-            prevHistory.map((entry) =>
-              entry.roomNumber === room.number && entry.guest.name === room.guest?.name && entry.status === "active"
-                ? {
-                    ...entry,
-                    totalPrice: entry.totalPrice + expense.value,
-                    guest: {
-                      ...entry.guest,
-                      expenses: [...(entry.guest.expenses || []), expense],
-                    },
-                  }
-                : entry,
-            ),
-          )
-
-          return updatedRoom
+        if (historyEntry) {
+          await hotelApi.updateGuestHistoryStatus(historyEntry.id, "completed")
         }
-        return room
-      }),
-    )
+      }
 
-    console.log("✅ Despesa adicionada:", roomId, expense)
+      await hotelApi.updateRoom(roomId, { status: "available", guest: undefined })
+      await syncData(false)
+      console.log("✅ Checkout realizado e sincronizado")
+    } catch (error) {
+      console.error("❌ Erro ao fazer checkout:", error)
+      throw error
+    }
   }
 
-  // 📊 Funções de estatísticas
+  // Funções de reserva
+  const makeReservation = async (reservation: Omit<Reservation, "id" | "createdAt">) => {
+    try {
+      if (!isOnline) {
+        throw new Error("Sem conexão com a internet")
+      }
+
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+
+      const checkInDate = new Date(reservation.guest.checkIn)
+      checkInDate.setHours(0, 0, 0, 0)
+
+      console.log("📅 Processando reserva:", {
+        today: today.toDateString(),
+        checkIn: checkInDate.toDateString(),
+        isToday: checkInDate.getTime() === today.getTime(),
+        isFuture: checkInDate.getTime() > today.getTime(),
+      })
+
+      // Se o check-in é hoje ou no passado, ocupar o quarto imediatamente
+      if (checkInDate.getTime() <= today.getTime()) {
+        console.log("🏨 Reserva para hoje/passado - ocupando quarto imediatamente")
+        await hotelApi.updateRoom(reservation.roomId, {
+          status: "occupied",
+          guest: reservation.guest,
+        })
+      } else {
+        // Se é para o futuro, adicionar às reservas futuras
+        console.log("📅 Reserva futura - adicionando à lista de reservas futuras")
+        await hotelApi.createReservation(reservation.roomId, reservation.guest)
+      }
+
+      // Adicionar ao histórico
+      const room = rooms.find((r) => r.id === reservation.roomId)
+      if (room) {
+        const nights = getNumberOfNights(reservation.guest.checkIn, reservation.guest.checkOut)
+        const totalPrice =
+          room.price * reservation.guest.guests * nights +
+          (reservation.guest.expenses?.reduce((sum, exp) => sum + exp.value, 0) || 0)
+
+        await hotelApi.addToGuestHistory({
+          guest: reservation.guest,
+          roomNumber: room.number,
+          roomType: room.type,
+          checkInDate: reservation.guest.checkIn,
+          checkOutDate: reservation.guest.checkOut,
+          totalPrice,
+          status: "active",
+        })
+      }
+
+      // Sincronizar dados após a reserva
+      await syncData(false)
+      console.log("✅ Reserva criada e sincronizada")
+    } catch (error) {
+      console.error("❌ Erro ao fazer reserva:", error)
+      throw error
+    }
+  }
+
+  const cancelFutureReservation = async (reservationId: string) => {
+    try {
+      if (!isOnline) {
+        throw new Error("Sem conexão com a internet")
+      }
+
+      const reservation = futureReservations.find((r) => r.id === reservationId)
+      if (reservation) {
+        // Atualizar status no histórico para "cancelled"
+        const historyEntry = guestHistory.find(
+          (entry) =>
+            entry.guest.name === reservation.guest.name &&
+            entry.checkInDate === reservation.guest.checkIn &&
+            entry.status === "active",
+        )
+
+        if (historyEntry) {
+          await hotelApi.updateGuestHistoryStatus(historyEntry.id, "cancelled")
+        }
+      }
+
+      await hotelApi.cancelReservation(reservationId)
+      await syncData(false)
+      console.log("✅ Reserva cancelada e sincronizada")
+    } catch (error) {
+      console.error("❌ Erro ao cancelar reserva:", error)
+      throw error
+    }
+  }
+
+  // Função de despesas
+  const addExpenseToRoom = async (roomId: string, expense: Expense) => {
+    try {
+      if (!isOnline) {
+        throw new Error("Sem conexão com a internet")
+      }
+
+      const room = rooms.find((r) => r.id === roomId)
+      if (room && room.guest) {
+        const updatedGuest = {
+          ...room.guest,
+          expenses: [...(room.guest.expenses || []), expense],
+        }
+
+        await hotelApi.updateRoom(roomId, { guest: updatedGuest })
+        await syncData(false)
+        console.log("✅ Despesa adicionada e sincronizada")
+      }
+    } catch (error) {
+      console.error("❌ Erro ao adicionar despesa:", error)
+      throw error
+    }
+  }
+
+  // Funções de estatísticas
   const getStatistics = (): HotelStatistics => {
     const totalRooms = rooms.length
     const occupiedRooms = rooms.filter((room) => room.status === "occupied").length
@@ -574,8 +481,19 @@ export function HotelProvider({ children }: { children: ReactNode }) {
     return guestHistory.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   }
 
-  const deleteGuestHistory = (historyId: string) => {
-    setGuestHistory((prev) => prev.filter((entry) => entry.id !== historyId))
+  const deleteGuestHistory = async (historyId: string) => {
+    try {
+      if (!isOnline) {
+        throw new Error("Sem conexão com a internet")
+      }
+
+      await hotelApi.deleteGuestHistory(historyId)
+      await syncData(false)
+      console.log("✅ Histórico deletado e sincronizado")
+    } catch (error) {
+      console.error("❌ Erro ao deletar histórico:", error)
+      throw error
+    }
   }
 
   return (
@@ -604,6 +522,9 @@ export function HotelProvider({ children }: { children: ReactNode }) {
         error,
         lastSync,
         isOnline,
+        syncData,
+        resetData,
+        forceRefresh,
       }}
     >
       {children}

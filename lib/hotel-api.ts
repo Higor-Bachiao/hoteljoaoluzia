@@ -1,82 +1,124 @@
-// Nova camada de API para conectar frontend com backend
-export class HotelAPI {
-  private static baseUrl = "/api"
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api"
 
-  static async getAllRooms() {
-    const response = await fetch(`${this.baseUrl}/rooms`)
-    if (!response.ok) throw new Error("Erro ao buscar quartos")
-    return response.json()
+// Função para fazer requisições autenticadas
+async function apiRequest(endpoint: string, options: RequestInit = {}) {
+  const token = localStorage.getItem("hotel_auth_token")
+
+  const config: RequestInit = {
+    headers: {
+      "Content-Type": "application/json",
+      ...(token && { Authorization: `Bearer ${token}` }),
+      ...options.headers,
+    },
+    ...options,
   }
 
-  static async createReservation(reservation: any) {
-    const response = await fetch(`${this.baseUrl}/reservations`, {
+  const response = await fetch(`${API_URL}${endpoint}`, config)
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: "Erro desconhecido" }))
+    throw new Error(error.error || `HTTP ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export const hotelApi = {
+  // ==================== AUTENTICAÇÃO ====================
+  async login(email: string, password: string) {
+    const response = await apiRequest("/auth/login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(reservation),
+      body: JSON.stringify({ email, password }),
     })
-    if (!response.ok) throw new Error("Erro ao criar reserva")
-    return response.json()
-  }
 
-  static async updateRoomStatus(roomId: string, status: string, guest?: any) {
-    const response = await fetch(`${this.baseUrl}/rooms/${roomId}/status`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status, guest }),
-    })
-    if (!response.ok) throw new Error("Erro ao atualizar quarto")
-    return response.json()
-  }
+    if (response.token) {
+      localStorage.setItem("hotel_auth_token", response.token)
+      localStorage.setItem("hotel_current_user", JSON.stringify(response.user))
+    }
 
-  static async addExpense(guestId: string, expense: any) {
-    const response = await fetch(`${this.baseUrl}/expenses`, {
+    return response
+  },
+
+  logout() {
+    localStorage.removeItem("hotel_auth_token")
+    localStorage.removeItem("hotel_current_user")
+  },
+
+  getCurrentUser() {
+    const userStr = localStorage.getItem("hotel_current_user")
+    return userStr ? JSON.parse(userStr) : null
+  },
+
+  // ==================== QUARTOS ====================
+  async getAllRooms() {
+    return apiRequest("/rooms")
+  },
+
+  async createRoom(room: any) {
+    return apiRequest("/rooms", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ guestId, ...expense }),
-    })
-    if (!response.ok) throw new Error("Erro ao adicionar despesa")
-    return response.json()
-  }
-
-  static async getFutureReservations() {
-    const response = await fetch(`${this.baseUrl}/reservations`)
-    if (!response.ok) throw new Error("Erro ao buscar reservas futuras")
-    return response.json()
-  }
-
-  static async cancelReservation(reservationId: string) {
-    const response = await fetch(`${this.baseUrl}/reservations/${reservationId}`, {
-      method: "DELETE",
-    })
-    if (!response.ok) throw new Error("Erro ao cancelar reserva")
-    return response.json()
-  }
-
-  static async createRoom(room: any) {
-    const response = await fetch(`${this.baseUrl}/rooms`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(room),
     })
-    if (!response.ok) throw new Error("Erro ao criar quarto")
-    return response.json()
-  }
+  },
 
-  static async updateRoom(roomId: string, updates: any) {
-    const response = await fetch(`${this.baseUrl}/rooms/${roomId}`, {
+  async updateRoom(id: string, updates: any) {
+    return apiRequest(`/rooms/${id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updates),
     })
-    if (!response.ok) throw new Error("Erro ao atualizar quarto")
-    return response.json()
-  }
+  },
 
-  static async deleteRoom(roomId: string) {
-    const response = await fetch(`${this.baseUrl}/rooms/${roomId}`, {
+  async deleteRoom(id: string) {
+    return apiRequest(`/rooms/${id}`, {
       method: "DELETE",
     })
-    if (!response.ok) throw new Error("Erro ao deletar quarto")
-    return response.json()
-  }
+  },
+
+  // ==================== RESERVAS ====================
+  async getFutureReservations() {
+    return apiRequest("/reservations")
+  },
+
+  async createReservation(roomId: string, guest: any) {
+    return apiRequest("/reservations", {
+      method: "POST",
+      body: JSON.stringify({ roomId, guest }),
+    })
+  },
+
+  async cancelReservation(id: string) {
+    return apiRequest(`/reservations/${id}`, {
+      method: "DELETE",
+    })
+  },
+
+  // ==================== HISTÓRICO ====================
+  async getGuestHistory() {
+    return apiRequest("/history")
+  },
+
+  async addToGuestHistory(historyData: any) {
+    return apiRequest("/history", {
+      method: "POST",
+      body: JSON.stringify(historyData),
+    })
+  },
+
+  async updateGuestHistoryStatus(id: string, status: string) {
+    return apiRequest(`/history/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ status }),
+    })
+  },
+
+  async deleteGuestHistory(id: string) {
+    return apiRequest(`/history/${id}`, {
+      method: "DELETE",
+    })
+  },
+
+  // ==================== HEALTH CHECK ====================
+  async healthCheck() {
+    return apiRequest("/health")
+  },
 }
